@@ -7360,6 +7360,9 @@ void copyprotect(void)
 void main(int argc,char **argv)
 {
     long i, j, k, l;
+
+    _argc = argc;
+    _argv = argv;
     int32 tempautorun;
 
     copyprotect();

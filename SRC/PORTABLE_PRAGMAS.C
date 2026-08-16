@@ -1,8 +1,11 @@
 /* Portable replacements for Watcom #pragma aux helpers from PRAGMAS.H.
  * Keep the 32-bit two's-complement/fixed-point semantics used by Build. */
+#include <dos.h>
+#include <string.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <conio.h>
+#include "dos_phys.h"
 
 static long sar64_to_long(int64_t v, unsigned shift)
 {
@@ -164,3 +167,108 @@ void swapchar2(long a,long b,long stride)
 void koutp(long port,long value) { outp((uint16_t)port,(uint8_t)value); }
 void koutpw(long port,long value) { outpw((uint16_t)port,(uint16_t)value); }
 long kinp(long port) { return (long)inp((uint16_t)port); }
+
+long readpixel(long p) { return (long)*((uint8_t *)(uintptr_t)(uint32_t)p); }
+void drawpixel(long p, long v) { *((uint8_t *)(uintptr_t)(uint32_t)p) = (uint8_t)v; }
+void drawpixels(long p, long v) { *((uint16_t *)(uintptr_t)(uint32_t)p) = (uint16_t)v; }
+void drawpixelses(long p, long v) { *((uint32_t *)(uintptr_t)(uint32_t)p) = (uint32_t)v; }
+void printchrasm(long dst, long count, long value)
+{
+    uint16_t *d = (uint16_t *)(uintptr_t)(uint32_t)dst;
+    while (count-- > 0) *d++ = (uint16_t)value;
+}
+
+
+/* Planar VGA helpers from the original Watcom PRAGMAS.H. */
+void setcolor16(long color)
+{
+    outpw(0x3ce, (uint16_t)(((uint16_t)color << 8) | 0x00));
+}
+
+void vlin16first(long addr, long count)
+{
+    uint32_t p = (uint32_t)addr;
+    uint8_t v;
+    if (count <= 0) return;
+    v = dos_phys_read8(p);
+    while (count-- > 0)
+    {
+        dos_phys_write8(p, v);
+        p += 80u;
+    }
+}
+
+void vlin16(long addr, long count)
+{
+    uint32_t src = (uint32_t)addr;
+    uint32_t dst = (uint32_t)addr;
+    while (count-- > 0)
+    {
+        uint8_t v = dos_phys_read8(src);
+        dos_phys_write8(dst, v);
+        src += 80u;
+        dst += 80u;
+    }
+}
+
+void drawpixel16(long pixel)
+{
+    uint32_t p = (uint32_t)pixel;
+    uint8_t mask = (uint8_t)(0x80u >> (p & 7u));
+    uint32_t byte_addr = 0xA0000u + (p >> 3);
+    uint8_t latch;
+
+    outpw(0x3ce, (uint16_t)(((uint16_t)mask << 8) | 0x08));
+    latch = dos_phys_read8(byte_addr);
+    (void)latch;
+    dos_phys_write8(byte_addr, 0x08);
+}
+
+void fillscreen16(long offset, long color, long pixels)
+{
+    uint32_t addr = 0xA0000u + (uint32_t)offset;
+    long dwords;
+
+    setcolor16(color);
+    outpw(0x3ce, 0xff08u);
+    dwords = pixels >> 5;
+    while (dwords-- > 0)
+    {
+        dos_phys_write32(addr, 0x0000ff08u);
+        addr += 4u;
+    }
+}
+
+void limitrate(void)
+{
+    while (inp(0x3da) & 8u) { }
+    while (!(inp(0x3da) & 8u)) { }
+}
+
+int setupmouse(void)
+{
+    union REGS in, out;
+    memset(&in, 0, sizeof(in));
+    in.w.ax = 0;
+    int386(0x33, &in, &out);
+    return out.w.ax & 0xffff;
+}
+
+void readmousexy(long *x, long *y)
+{
+    union REGS in, out;
+    memset(&in, 0, sizeof(in));
+    in.w.ax = 11;
+    int386(0x33, &in, &out);
+    if (x) *x = (short)out.w.cx;
+    if (y) *y = (short)out.w.dx;
+}
+
+void readmousebstatus(long *status)
+{
+    union REGS in, out;
+    memset(&in, 0, sizeof(in));
+    in.w.ax = 3;
+    int386(0x33, &in, &out);
+    if (status) *status = out.w.bx & 7;
+}

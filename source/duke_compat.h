@@ -19,15 +19,6 @@
 #define _A_SUBDIR 0x10
 #endif
 
-struct find_t
-{
-    unsigned attrib;
-    char name[260];
-};
-
-int _dos_findfirst(const char *pattern, unsigned attrib, struct find_t *info);
-int _dos_findnext(struct find_t *info);
-
 #ifndef min
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #endif

@@ -31,6 +31,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef __MUSIC_H
 #define __MUSIC_H
 
+#if defined(ELF_MODE) && !defined(cdecl)
+#define cdecl
+#endif
+
 #include "sndcards.h"
 
 extern int MUSIC_ErrorCode;

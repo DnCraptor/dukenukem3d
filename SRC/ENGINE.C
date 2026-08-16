@@ -15,6 +15,7 @@
 #include <sys\types.h>
 #include <sys\stat.h>
 #include <conio.h>
+#include <stdint.h>
 #include "build.h"
 #include "pragmas.h"
 
@@ -76,25 +77,16 @@ volatile char oa1, o3c2, ortca, ortcb, overtbits, laststereoint;
 
 	//MUST CALL MALLOC THIS WAY TO FORCE CALLS TO KMALLOC!
 void *kmalloc(size_t size) { return(malloc(size)); }
-void *kkmalloc(size_t size);
-#pragma aux kkmalloc =\
-	"call kmalloc",\
-	parm [eax]\
+void *kkmalloc(size_t size) { return kmalloc(size); }
 
 	//MUST CALL FREE THIS WAY TO FORCE CALLS TO KFREE!
 void kfree(void *buffer) { free(buffer); }
-void kkfree(void *buffer);
-#pragma aux kkfree =\
-	"call kfree",\
-	parm [eax]\
+void kkfree(void *buffer) { kfree(buffer); }
 
 #ifdef SUPERBUILD
 	//MUST CALL LOADVOXEL THIS WAY BECAUSE WATCOM STINKS!
 void loadvoxel(long voxindex) { }
-void kloadvoxel(long voxindex);
-#pragma aux kloadvoxel =\
-	"call loadvoxel",\
-	parm [eax]\
+void kloadvoxel(long voxindex) { loadvoxel(voxindex); }
 
 	//These variables need to be copied into BUILD
 #define MAXXSIZ 128
@@ -154,16 +146,31 @@ char britable[16][64];
 char textfont[1024], smalltextfont[1024];
 
 static char kensmessage[128];
-#pragma aux getkensmessagecrc =\
-	"xor eax, eax",\
-	"mov ecx, 32",\
-	"beg: mov edx, dword ptr [ebx+ecx*4-4]",\
-	"ror edx, cl",\
-	"adc eax, edx",\
-	"bswap eax",\
-	"loop short beg",\
-	parm [ebx]\
-	modify exact [eax ebx ecx edx]\
+static unsigned long getkensmessagecrc(long addr)
+{
+    const unsigned long *p = (const unsigned long *)addr;
+    unsigned long eax = 0;
+    int ecx;
+
+    for (ecx = 32; ecx >= 1; --ecx)
+    {
+        unsigned long edx = p[ecx-1];
+        unsigned int n = (unsigned int)ecx & 31u;
+        unsigned long carry = 0;
+
+        if (n != 0)
+        {
+            carry = (edx >> (n-1)) & 1u;
+            edx = (edx >> n) | (edx << (32u-n));
+        }
+        eax += edx + carry;
+        eax = ((eax & 0x000000ffUL) << 24) |
+              ((eax & 0x0000ff00UL) << 8)  |
+              ((eax & 0x00ff0000UL) >> 8)  |
+              ((eax & 0xff000000UL) >> 24);
+    }
+    return eax;
+}
 
 static long xb1[MAXWALLSB], yb1[MAXWALLSB], xb2[MAXWALLSB], yb2[MAXWALLSB];
 static long rx1[MAXWALLSB], ry1[MAXWALLSB], rx2[MAXWALLSB], ry2[MAXWALLSB];
@@ -372,86 +379,81 @@ extern long setupdrawslab(long,long);
 extern long drawslab(long,long,long,long,long,long);
 #pragma aux drawslab parm [eax][ebx][ecx][edx][esi][edi];
 
-#pragma aux nsqrtasm =\
-	"test eax, 0xff000000",\
-	"mov ebx, eax",\
-	"jnz short over24",\
-	"shr ebx, 12",\
-	"mov cx, word ptr shlookup[ebx*2]",\
-	"jmp short under24",\
-	"over24: shr ebx, 24",\
-	"mov cx, word ptr shlookup[ebx*2+8192]",\
-	"under24: shr eax, cl",\
-	"mov cl, ch",\
-	"mov ax, word ptr sqrtable[eax*2]",\
-	"shr eax, cl",\
-	parm nomemory [eax]\
-	modify exact [eax ebx ecx]\
+static long nsqrtasm(long num)
+{
+    uint32_t eax = (uint32_t)num;
+    uint32_t ebx = eax;
+    uint16_t cx;
+    unsigned cl, ch;
 
-#pragma aux msqrtasm =\
-	"mov eax, 0x40000000",\
-	"mov ebx, 0x20000000",\
-	"begit: cmp ecx, eax",\
-	"jl skip",\
-	"sub ecx, eax",\
-	"lea eax, [eax+ebx*4]",\
-	"skip: sub eax, ebx",\
-	"shr eax, 1",\
-	"shr ebx, 2",\
-	"jnz begit",\
-	"cmp ecx, eax",\
-	"sbb eax, -1",\
-	"shr eax, 1",\
-	parm nomemory [ecx]\
-	modify exact [eax ebx ecx]\
+    if ((eax & 0xff000000u) == 0)
+        cx = shlookup[ebx >> 12];
+    else
+        cx = shlookup[4096 + (ebx >> 24)];
 
-	//0x007ff000 is (11<<13), 0x3f800000 is (127<<23)
-#pragma aux krecipasm =\
-	"mov fpuasm, eax",\
-	"fild dword ptr fpuasm",\
-	"add eax, eax",\
-	"fstp dword ptr fpuasm",\
-	"sbb ebx, ebx",\
-	"mov eax, fpuasm",\
-	"mov ecx, eax",\
-	"and eax, 0x007ff000",\
-	"shr eax, 10",\
-	"sub ecx, 0x3f800000",\
-	"shr ecx, 23",\
-	"mov eax, dword ptr reciptable[eax]",\
-	"sar eax, cl",\
-	"xor eax, ebx",\
-	parm [eax]\
-	modify exact [eax ebx ecx]\
+    cl = cx & 255u;
+    ch = cx >> 8;
+    eax >>= cl;
+    eax = (eax & 0xffff0000u) | sqrtable[eax];
+    eax >>= ch;
+    return (long)eax;
+}
 
-#pragma aux setgotpic =\
-	"mov ebx, eax",\
-	"cmp byte ptr walock[eax], 200",\
-	"jae skipit",\
-	"mov byte ptr walock[eax], 199",\
-	"skipit: shr eax, 3",\
-	"and ebx, 7",\
-	"mov dl, byte ptr gotpic[eax]",\
-	"mov bl, byte ptr pow2char[ebx]",\
-	"or dl, bl",\
-	"mov byte ptr gotpic[eax], dl",\
-	parm [eax]\
-	modify exact [eax ebx ecx edx]\
+static long msqrtasm(long num)
+{
+    uint32_t ecx = (uint32_t)num;
+    uint32_t eax = 0x40000000u;
+    uint32_t ebx = 0x20000000u;
 
-#pragma aux getclipmask =\
-	"sar eax, 31",\
-	"add ebx, ebx",\
-	"adc eax, eax",\
-	"add ecx, ecx",\
-	"adc eax, eax",\
-	"add edx, edx",\
-	"adc eax, eax",\
-	"mov ebx, eax",\
-	"shl ebx, 4",\
-	"or al, 0xf0",\
-	"xor eax, ebx",\
-	parm [eax][ebx][ecx][edx]\
-	modify exact [eax ebx ecx edx]\
+    do
+    {
+        if ((int32_t)ecx >= (int32_t)eax)
+        {
+            ecx -= eax;
+            eax += ebx * 4u;
+        }
+        eax -= ebx;
+        eax >>= 1;
+        ebx >>= 2;
+    } while (ebx != 0);
+
+    if (ecx >= eax) ++eax;
+    return (long)(eax >> 1);
+}
+
+static long krecipasm(long num)
+{
+    union { float f; uint32_t u; } cvt;
+    uint32_t in = (uint32_t)num;
+    uint32_t signmask = 0u - (in >> 31);
+    uint32_t bits, index, shift;
+    int32_t result;
+
+    cvt.f = (float)(int32_t)in;
+    bits = cvt.u;
+    index = (bits & 0x007ff000u) >> 12;
+    shift = (bits - 0x3f800000u) >> 23;
+    result = (int32_t)reciptable[index];
+    if (shift < 32) result >>= shift;
+    else result = result < 0 ? -1 : 0;
+    return (long)((uint32_t)result ^ signmask);
+}
+
+static void setgotpic(long tilenum)
+{
+    unsigned long t = (unsigned long)tilenum;
+    if (walock[t] < 200) walock[t] = 199;
+    gotpic[t >> 3] |= pow2char[t & 7];
+}
+
+static long getclipmask(long a, long b, long c, long d)
+{
+    uint32_t m = ((uint32_t)a >> 31);
+    m = (m << 1) | ((uint32_t)b >> 31);
+    m = (m << 1) | ((uint32_t)c >> 31);
+    m = (m << 1) | ((uint32_t)d >> 31);
+    return (long)(((m | 0xf0u) ^ (m << 4)) & 0xffu);
+}
 
 drawrooms(long daposx, long daposy, long daposz,
 			 short daang, long dahoriz, short dacursectnum)
