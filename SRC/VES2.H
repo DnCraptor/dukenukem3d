@@ -201,7 +201,14 @@ long DPMI_int86(long intno, RMREGS *in, RMREGS *out)
 long DPMI_int86x(long intno, RMREGS *in, RMREGS *out, RMSREGS *sregs)
 {
     union REGS r = {0};
-    struct SREGS sr = {0};
+    struct SREGS sr;
+
+    /*
+     * int386x() treats SREGS as a complete x86 segment-register
+     * context.  Preserve CS/SS/FS/GS here; zeroing them before a
+     * synchronous BIOS call destroys the return stack/context.
+     */
+    segread(&sr);
 
     r.w.ax = in->x.ax; r.w.bx = in->x.bx;
     r.w.cx = in->x.cx; r.w.dx = in->x.dx;
