@@ -8,6 +8,7 @@
 #include <conio.h>
 #include <dos.h>
 #include "dos_mem.h"
+#include "dos-api.h"
 
 #pragma pack(push,1);
 
@@ -308,7 +309,16 @@ getvalidvesamodes()
 	//if (vgaInfo.VESAVersion < 0x200) return;
 
 		//LfbMapRealPointer
+#ifdef ELF_MODE
+	{
+		uint32_t modeListLinear =
+			((vgaInfo.VideoModePtr >> 16) << 4) +
+			(vgaInfo.VideoModePtr & 0xffff);
+		p = (short *)dos_guest_linear_ptr(modeListLinear);
+	}
+#else
 	p = (short *)(((vgaInfo.VideoModePtr&0xffff0000)>>12)+((vgaInfo.VideoModePtr)&0xffff));
+#endif
 	p2 = modelist;
 	while (*p != -1) *p2++ = *p++;
 	*p2 = -1;

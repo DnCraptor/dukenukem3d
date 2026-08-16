@@ -2832,7 +2832,7 @@ void displayrooms(short snum,long smoothratio)
                 else
                     setviewtotile(MAXTILES-2,320L>>(1-ud.detail),320L>>(1-ud.detail));
                 if ((tang&1023) == 512)
-                {     //Block off unscreen section of 90ø tilted screen
+                {     //Block off unscreen section of 90ï¿½ tilted screen
                     j = ((320-60)>>(1-ud.detail));
                     for(i=(60>>(1-ud.detail))-1;i>=0;i--)
                     {
@@ -7371,6 +7371,10 @@ void main(int argc,char **argv)
     _argc = argc;
     _argv = argv;
     int32 tempautorun;
+
+#ifdef ELF_MODE
+    dos_malloc_set_policy(DOS_MALLOC_POLICY_MESSAGE_EXIT);
+#endif
 
     copyprotect();
 
