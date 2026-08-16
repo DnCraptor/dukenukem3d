@@ -1,0 +1,166 @@
+/* Portable replacements for Watcom #pragma aux helpers from PRAGMAS.H.
+ * Keep the 32-bit two's-complement/fixed-point semantics used by Build. */
+#include <stdint.h>
+#include <stddef.h>
+#include <conio.h>
+
+static long sar64_to_long(int64_t v, unsigned shift)
+{
+    if (shift == 0) return (long)v;
+    return (long)(v >> shift);
+}
+
+long sqr(long a) { return (long)((uint32_t)a * (uint32_t)a); }
+long scale(long a, long b, long c) { return (long)(((int64_t)a * (int64_t)b) / c); }
+long mulscale(long a, long b, long shift) { return sar64_to_long((int64_t)a * (int64_t)b, (unsigned)shift); }
+long mulscale1(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 1); }
+long mulscale2(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 2); }
+long mulscale4(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 4); }
+long mulscale5(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 5); }
+long mulscale6(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 6); }
+long mulscale8(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 8); }
+long mulscale9(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 9); }
+long mulscale10(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 10); }
+long mulscale11(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 11); }
+long mulscale12(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 12); }
+long mulscale13(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 13); }
+long mulscale14(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 14); }
+long mulscale15(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 15); }
+long mulscale16(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 16); }
+long mulscale17(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 17); }
+long mulscale18(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 18); }
+long mulscale19(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 19); }
+long mulscale20(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 20); }
+long mulscale21(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 21); }
+long mulscale23(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 23); }
+long mulscale24(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 24); }
+long mulscale27(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 27); }
+long mulscale28(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 28); }
+long mulscale30(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 30); }
+long mulscale31(long a, long b) { return sar64_to_long((int64_t)a * (int64_t)b, 31); }
+long mulscale32(long a, long b) { return (long)(((int64_t)a * (int64_t)b) >> 32); }
+
+static long dmulscale_n(long a, long b, long c, long d, unsigned shift)
+{
+    uint64_t u = (uint64_t)((int64_t)a * (int64_t)b);
+    u += (uint64_t)((int64_t)c * (int64_t)d);
+    return sar64_to_long((int64_t)u, shift);
+}
+long dmulscale(long a,long b,long c,long d,long shift) { return dmulscale_n(a,b,c,d,(unsigned)shift); }
+long dmulscale2(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,2); }
+long dmulscale3(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,3); }
+long dmulscale6(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,6); }
+long dmulscale8(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,8); }
+long dmulscale9(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,9); }
+long dmulscale10(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,10); }
+long dmulscale12(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,12); }
+long dmulscale14(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,14); }
+long dmulscale15(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,15); }
+long dmulscale16(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,16); }
+long dmulscale17(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,17); }
+long dmulscale18(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,18); }
+long dmulscale24(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,24); }
+long dmulscale25(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,25); }
+long dmulscale28(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,28); }
+long dmulscale32(long a,long b,long c,long d) { return dmulscale_n(a,b,c,d,32); }
+
+static long tmulscale_n(long a,long b,long c,long d,long e,long f,unsigned shift)
+{
+    uint64_t u = (uint64_t)((int64_t)a * (int64_t)b);
+    u += (uint64_t)((int64_t)c * (int64_t)d);
+    u += (uint64_t)((int64_t)e * (int64_t)f);
+    return sar64_to_long((int64_t)u, shift);
+}
+long tmulscale11(long a,long b,long c,long d,long e,long f) { return tmulscale_n(a,b,c,d,e,f,11); }
+
+long divscale(long a, long b, long shift)
+{
+    return (long)(((int64_t)a * ((int64_t)1 << (unsigned)shift)) / b);
+}
+long divscale12(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 12)) / b); }
+long divscale14(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 14)) / b); }
+long divscale15(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 15)) / b); }
+long divscale16(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 16)) / b); }
+long divscale17(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 17)) / b); }
+long divscale18(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 18)) / b); }
+long divscale19(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 19)) / b); }
+long divscale20(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 20)) / b); }
+long divscale21(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 21)) / b); }
+long divscale22(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 22)) / b); }
+long divscale24(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 24)) / b); }
+long divscale26(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 26)) / b); }
+long divscale28(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 28)) / b); }
+long divscale30(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 30)) / b); }
+long divscale32(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 32)) / b); }
+
+long klabs(long a) { return a < 0 ? -a : a; }
+long ksgn(long a) { return (a > 0) - (a < 0); }
+long sgn(long a) { return (a > 0) - (a < 0); }
+long min(long a,long b) { return a < b ? a : b; }
+long max(long a,long b) { return a > b ? a : b; }
+long mul5(long a) { return a * 5; }
+
+void clearbuf(long dst, long count, long value)
+{
+    uint32_t *p = (uint32_t *)(uintptr_t)(uint32_t)dst;
+    while (count-- > 0) *p++ = (uint32_t)value;
+}
+
+void clearbufbyte(long dst, long count, long value)
+{
+    uint8_t *p = (uint8_t *)(uintptr_t)(uint32_t)dst;
+    uint8_t v = (uint8_t)value;
+    while (count-- > 0) *p++ = v;
+}
+
+void copybuf(long src, long dst, long count)
+{
+    const uint32_t *s = (const uint32_t *)(uintptr_t)(uint32_t)src;
+    uint32_t *d = (uint32_t *)(uintptr_t)(uint32_t)dst;
+    while (count-- > 0) *d++ = *s++;
+}
+
+void copybufbyte(long src, long dst, long count)
+{
+    const uint8_t *s = (const uint8_t *)(uintptr_t)(uint32_t)src;
+    uint8_t *d = (uint8_t *)(uintptr_t)(uint32_t)dst;
+    while (count-- > 0) *d++ = *s++;
+}
+
+void copybufreverse(long src, long dst, long count)
+{
+    const uint8_t *s = (const uint8_t *)(uintptr_t)(uint32_t)src;
+    uint8_t *d = (uint8_t *)(uintptr_t)(uint32_t)dst;
+    while (count-- > 0) *d++ = *s--;
+}
+
+void qinterpolatedown16(long dst, long count, long value, long add)
+{
+    int32_t *d = (int32_t *)(uintptr_t)(uint32_t)dst;
+    int32_t v = (int32_t)value;
+    while (count-- > 0) { *d++ = v >> 16; v += (int32_t)add; }
+}
+
+void qinterpolatedown16short(long dst, long count, long value, long add)
+{
+    int16_t *d = (int16_t *)(uintptr_t)(uint32_t)dst;
+    int32_t v = (int32_t)value;
+    while (count-- > 0) { *d++ = (int16_t)(v >> 16); v += (int32_t)add; }
+}
+
+void swapchar(long a,long b)
+{ uint8_t *x=(uint8_t *)(uintptr_t)(uint32_t)a,*y=(uint8_t *)(uintptr_t)(uint32_t)b,t=*x; *x=*y; *y=t; }
+void swapshort(long a,long b)
+{ uint16_t *x=(uint16_t *)(uintptr_t)(uint32_t)a,*y=(uint16_t *)(uintptr_t)(uint32_t)b,t=*x; *x=*y; *y=t; }
+void swaplong(long a,long b)
+{ uint32_t *x=(uint32_t *)(uintptr_t)(uint32_t)a,*y=(uint32_t *)(uintptr_t)(uint32_t)b,t=*x; *x=*y; *y=t; }
+void swapchar2(long a,long b,long stride)
+{
+    uint8_t *x=(uint8_t *)(uintptr_t)(uint32_t)a,*y=(uint8_t *)(uintptr_t)(uint32_t)b;
+    uint8_t t=x[0]; x[0]=y[0]; y[0]=t;
+    t=x[1]; x[1]=y[stride]; y[stride]=t;
+}
+
+void koutp(long port,long value) { outp((uint16_t)port,(uint8_t)value); }
+void koutpw(long port,long value) { outpw((uint16_t)port,(uint16_t)value); }
+long kinp(long port) { return (long)inp((uint16_t)port); }
