@@ -9,6 +9,13 @@
 #include <dos.h>
 #include "dos_mem.h"
 #include "dos-api.h"
+#include "dos_diag.h"
+
+#if DIAG
+#define VBE_DIAG(code) dos_diag_set((uint32_t)(code))
+#else
+#define VBE_DIAG(code) ((void)0)
+#endif
 
 #pragma pack(push,1);
 
@@ -214,7 +221,9 @@ long DPMI_int86x(long intno, RMREGS *in, RMREGS *out, RMSREGS *sregs)
     r.w.cx = in->x.cx; r.w.dx = in->x.dx;
     r.w.si = in->x.si; r.w.di = in->x.di;
     sr.es = sregs->es; sr.ds = sregs->ds;
+    VBE_DIAG(0xD3110001u);
     int386x((int)intno, &r, &r, &sr);
+    VBE_DIAG(0xD3110002u);
     out->x.ax = r.w.ax; out->x.bx = r.w.bx;
     out->x.cx = r.w.cx; out->x.dx = r.w.dx;
     out->x.si = r.w.si; out->x.di = r.w.di;
@@ -301,7 +310,11 @@ getvalidvesamodes()
 	VBE_modeInfo modeInfo;
 	RMREGS regs;
 
-	if (vesachecked) return;
+	VBE_DIAG(0xD3100001u);
+	if (vesachecked) {
+		VBE_DIAG(0xD3100002u);
+		return;
+	}
 	vesachecked = 1;
 
 	validmodecnt = 0;
@@ -309,9 +322,15 @@ getvalidvesamodes()
 
 	strncpy(vgaInfo.VESASignature,"VBE2",4);
 	regs.x.ax = 0x4f00;
+	VBE_DIAG(0xD3100003u);
 	VBE_callESDI(&regs,&vgaInfo,sizeof(VBE_vgaInfo));
+	VBE_DIAG(0xD3100004u);
 	if ((regs.x.ax != 0x004f) || (strncmp(vgaInfo.VESASignature,"VESA",4)))
+	{
+		VBE_DIAG(0xD3100005u);
 		return;
+	}
+	VBE_DIAG(0xD3100006u);
 
 	//if (vgaInfo.VESAVersion < 0x200) return;
 
@@ -373,7 +392,9 @@ setvesa(long x, long y)
 	RMREGS regs;
 	RMSREGS sregs;
 
+	VBE_DIAG(0xD3100010u);
 	getvalidvesamodes();
+	VBE_DIAG(0xD3100011u);
 
 	xres = x; yres = y;
 	for(k=0;k<validmodecnt;k++)

@@ -40,7 +40,14 @@ Prepared for public release: 03/21/2003 - Charlie Wiederhold, 3D Realms
 
 #include "duke3d.h"
 #include "dos_mem.h"
+#include "dos_diag.h"
+#include "dos_guest_ptr.h"
 
+#if DIAG
+#define DUKE_DIAG(code) dos_diag_set((uint32_t)(code))
+#else
+#define DUKE_DIAG(code) ((void)0)
+#endif
 
 #ifdef VOLUMEONE
     #define VERSION "1.4"
@@ -1974,7 +1981,9 @@ void gameexit(char *t)
         dobonus(1);
 // CTW - MODIFICATION
 //      setgamemode();
+        DUKE_DIAG(0xD3000021u);
         setgamemode(ScreenMode,ScreenWidth,ScreenHeight);
+        DUKE_DIAG(0xD3000022u);
 // CTW END - MODIFICATION
     }
 #ifdef ONELEVELDEMO
@@ -6563,7 +6572,9 @@ void nonsharedkeys(void)
         else if(ud.brightness < 0)
             ud.brightness = (7<<2);
 
-        setbrightness(ud.brightness>>2,&ps[myconnectindex].palette[0]);
+        DUKE_DIAG(0xD3000025u);
+    setbrightness(ud.brightness>>2,&ps[myconnectindex].palette[0]);
+    DUKE_DIAG(0xD3000026u);
         if(ud.brightness < 20) FTA( 29 + (ud.brightness>>2) ,&ps[myconnectindex]);
         else if(ud.brightness < 40) FTA( 96 + (ud.brightness>>2) - 5,&ps[myconnectindex]);
     }
@@ -6908,7 +6919,13 @@ void printstr(short x, short y, char string[81], char attribute)
         while (string[i] != 0)
         {
                 character = string[i];
+#ifdef ELF_MODE
+                printchrasm((long)(uintptr_t)dos_guest_linear_ptr(
+                                0xb8000u + (uint32_t)pos),
+                            1L, ((long)attribute<<8)+(long)character);
+#else
                 printchrasm(0xb8000+(long)pos,1L,((long)attribute<<8)+(long)character);
+#endif
                 i++;
                 pos+=2;
         }
@@ -7376,13 +7393,16 @@ void main(int argc,char **argv)
     dos_malloc_set_policy(DOS_MALLOC_POLICY_MESSAGE_EXIT);
 #endif
 
+    DUKE_DIAG(0xD3000001u);
     copyprotect();
 
     todd[0] = 'T';
     sixteen[0] = 'D';
     trees[0] = 'I';
 
+    DUKE_DIAG(0xD3000002u);
     setvmode(0x03);
+    DUKE_DIAG(0xD3000003u);
 
     printstr(0,0,"                                                                                ",79);
 
@@ -7415,11 +7435,15 @@ void main(int argc,char **argv)
 
     printf("\n\n");
 
+    DUKE_DIAG(0xD3000004u);
     initgroupfile("duke3d.grp");
+    DUKE_DIAG(0xD3000005u);
 
     checkcommandline(argc,argv);
+    DUKE_DIAG(0xD3000006u);
 
     totalmemory = Z_AvailHeap();
+    DUKE_DIAG(0xD3000007u);
 
     if(memorycheckoveride == 0)
     {
@@ -7462,7 +7486,9 @@ void main(int argc,char **argv)
     getch();
 #endif
 
+    DUKE_DIAG(0xD3000010u);
     Startup();
+    DUKE_DIAG(0xD3000011u);
 
     if( eightytwofifty && numplayers > 1 && (MusicDevice != NumSoundCards) )
     {
@@ -7489,7 +7515,9 @@ void main(int argc,char **argv)
         ud.warp_on = 1;
     }
 
+    DUKE_DIAG(0xD3000012u);
     getnames();
+    DUKE_DIAG(0xD3000013u);
 
     if(ud.multimode > 1)
     {
@@ -7504,7 +7532,9 @@ void main(int argc,char **argv)
 
     ud.last_level = -1;
 
+   DUKE_DIAG(0xD3000014u);
    RTS_Init(ud.rtsname);
+   DUKE_DIAG(0xD3000015u);
    if(numlumps) printf("Using .RTS file:%s\n",ud.rtsname);
 
    if (CONTROL_JoystickEnabled)
@@ -7526,6 +7556,7 @@ void main(int argc,char **argv)
         vidoption = 2;
         setgamemode(vidoption,320,200);
     }*/
+    DUKE_DIAG(0xD3000020u);
     if( setgamemode(ScreenMode,ScreenWidth,ScreenHeight) < 0 )
     {
         printf("\nVESA driver for ( %i * %i ) not found/supported!\n",xdim,ydim);
@@ -7535,8 +7566,10 @@ void main(int argc,char **argv)
         setgamemode(ScreenMode,ScreenWidth,ScreenHeight);
     }
 // CTW END - MODIFICATION
+    DUKE_DIAG(0xD3000023u);
 
     genspriteremaps();
+    DUKE_DIAG(0xD3000024u);
 
 #ifdef VOLUMEONE
         if(numplayers > 4 || ud.multimode > 4)
