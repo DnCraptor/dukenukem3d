@@ -29,11 +29,11 @@ Prepared for public release: 03/21/2003 - Charlie Wiederhold, 3D Realms
 #include <stdlib.h>
 #include <malloc.h>
 #include <dos.h>
-#include <bios.h>
 #include <io.h>
 #include <fcntl.H>
 #include <time.h>
 #include <ctype.h>
+#include "duke_compat.h"
 #include "pragmas.h"
 #include "function.h"
 #include "build.h"
@@ -86,7 +86,6 @@ Prepared for public release: 03/21/2003 - Charlie Wiederhold, 3D Realms
 #include "sndcards.h"
 
 #include "names.h"
-#include "funct.h"
 
 
 #define TICRATE (120)

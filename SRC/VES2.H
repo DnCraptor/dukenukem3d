@@ -364,7 +364,6 @@ getvalidvesamodes()
 
 setvesa(long x, long y)
 {
-	div_t dived;
 	long i, j, k;
 	short *p, *p1, *p2;
 	VBE_modeInfo modeInfo;
@@ -461,9 +460,8 @@ setvesa(long x, long y)
 		j = 0;
 		for(i=0;i<maxpages;i++)
 		{
-			dived = div(j,bytesperline);
-			visualpagelookup[i][0] = (short)dived.rem;
-			visualpagelookup[i][1] = (short)dived.quot;
+			visualpagelookup[i][0] = (short)(j % bytesperline);
+			visualpagelookup[i][1] = (short)(j / bytesperline);
 			j += imageSize;
 		}
 		return(0);

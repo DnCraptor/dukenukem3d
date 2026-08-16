@@ -3905,7 +3905,7 @@ void processinput(short snum)
 
 
 //UPDATE THIS FILE OVER THE OLD GETSPRITESCORE/COMPUTERGETINPUT FUNCTIONS
-getspritescore(long snum, long dapicnum)
+int getspritescore(long snum, long dapicnum)
 {
     switch(dapicnum)
     {

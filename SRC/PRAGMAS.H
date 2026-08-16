@@ -4,6 +4,11 @@
 
 static long dmval;
 
+/* Native DOS applications use a flat 32-bit address space. */
+#ifndef FP_OFF
+#define FP_OFF(ptr) ((long)(ptr))
+#endif
+
 #pragma aux sqr =\
 	"imul eax, eax",\
 	parm nomemory [eax]\

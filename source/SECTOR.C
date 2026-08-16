@@ -332,7 +332,7 @@ void doanimations(void)
 	}
 }
 
-getanimationgoal(long *animptr)
+int getanimationgoal(long *animptr)
 {
 	long i, j;
 
@@ -346,7 +346,7 @@ getanimationgoal(long *animptr)
 	return(j);
 }
 
-setanimation(short animsect,long *animptr, long thegoal, long thevel)
+int setanimation(short animsect,long *animptr, long thegoal, long thevel)
 {
 	long i, j;
 

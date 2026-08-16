@@ -36,17 +36,55 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 
-# INCLUDE FILES THAT SHOULD BE COMPILED:
-file(GLOB_RECURSE SRC "*.cpp" "*.c" "${CMAKE_CURRENT_SOURCE_DIR}/api/*.c")
+# Build only the Duke3D executable.  Do not recursively glob the repository:
+# SRC/ also contains the BUILD editor/test program, UTIL/ contains standalone
+# tools, extras/ is a second game-code snapshot, and build/ contains CMake's
+# compiler-identification sources.
+set(DUKE_GAME_SOURCES
+    source/GAME.C
+    source/ACTORS.C
+    source/GAMEDEF.C
+    source/GLOBAL.C
+    source/MENUES.C
+    source/PLAYER.C
+    source/PREMAP.C
+    source/SECTOR.C
+    source/SOUNDS.C
+    source/RTS.C
+    source/CONFIG.C
+    source/ANIMLIB.C
+)
 
-message(STATUS "Add source files:")
-foreach (SRC_FILE IN LISTS SRC)
+# The released Duke makefile linked these Build-engine modules as prebuilt
+# Watcom objects.  Their C sources are present in SRC/ and can be rebuilt for
+# ARM.  A.ASM is deliberately not listed: it is x86 renderer assembly and will
+# be replaced by a portable/ARM implementation in a later porting stage.
+set(DUKE_BUILD_SOURCES
+    SRC/CACHE1D.C
+    SRC/ENGINE.C
+    SRC/MMULTI.C
+)
+
+set(DUKE_SOURCES
+    ${DUKE_GAME_SOURCES}
+    ${DUKE_BUILD_SOURCES}
+)
+
+# Upper-case .C is normally classified as C++ by CMake.  These files were
+# compiled by Watcom wcc386 and are C sources.
+set_source_files_properties(${DUKE_SOURCES} PROPERTIES
+    LANGUAGE C
+    COMPILE_OPTIONS "-std=gnu90"
+)
+
+message(STATUS "Duke3D source files:")
+foreach (SRC_FILE IN LISTS DUKE_SOURCES)
     message(STATUS "${SRC_FILE}")
 endforeach ()
 message(STATUS "")
 
 add_executable(${PROJECT_NAME}
-#TODO:
+    ${DUKE_SOURCES}
 )
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/api/native-dos-runtime.cmake)
@@ -63,10 +101,10 @@ target_sources(${PROJECT_NAME} PRIVATE
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/source
+    ${CMAKE_CURRENT_SOURCE_DIR}/SRC
 )
 
-configure_file(memmap.ld.in memmap.ld @ONLY)
-pico_set_linker_script(${PROJECT_NAME} ${CMAKE_CURRENT_BINARY_DIR}/memmap.ld)
 
 pico_set_program_name(${PROJECT_NAME} "ARM DOS Applications: duke3d")
 pico_set_program_version(${PROJECT_NAME} "duke3d")

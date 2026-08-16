@@ -30,7 +30,7 @@ extern char everyothertime;
 short which_palookup = 9;
 
 
-tloadtile(short tilenume)
+void tloadtile(short tilenume)
 {
     gotpic[tilenume>>3] |= (1<<(tilenume&7));
 }

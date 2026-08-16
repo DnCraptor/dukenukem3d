@@ -700,7 +700,7 @@ saveplayer(signed char spot)
 
      if(ud.multimode < 2)
      {
-         strcpy(&fta_quotes[122],"GAME SAVED");
+         strcpy(fta_quotes[122],"GAME SAVED");
          FTA(122,&ps[myconnectindex]);
      }
 
@@ -1130,7 +1130,7 @@ void dispnames(void)
 
 }
 
-getfilenames(char kind[6])
+int getfilenames(char kind[6])
 {
         short type;
         struct find_t fileinfo;

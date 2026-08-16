@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dos.h>
-#include <process.h>
 #include <stdarg.h>
 #include "pragmas.h"
 

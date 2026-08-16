@@ -619,7 +619,7 @@ void pan3dsound(void)
     }
 }
 
-void TestCallBack(long num)
+void TestCallBack(unsigned long num)
 {
     short tempi,tempj,tempk;
 

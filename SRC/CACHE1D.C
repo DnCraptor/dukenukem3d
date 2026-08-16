@@ -253,7 +253,7 @@ initgroupfile(char *filename)
 
 	if (numgroupfiles >= MAXGROUPFILES) return(-1);
 
-	groupfil[numgroupfiles] = open(filename,O_BINARY|O_RDWR,S_IREAD);
+	groupfil[numgroupfiles] = open(filename,O_BINARY|O_RDONLY);
 	if (groupfil[numgroupfiles] != -1)
 	{
 		groupfilpos[numgroupfiles] = 0;

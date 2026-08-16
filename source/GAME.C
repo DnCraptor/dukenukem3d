@@ -83,7 +83,6 @@ char firstdemofile[80] = { '\0' };
         scale(x2,xdim,320)-1,scale(y2,ydim,200)-1);                        \
 }
 
-void __interrupt __far newint24( int errval, int ax, int bp, int si );
 
 int recfilep,totalreccnt;
 char debug_on = 0,actor_tog = 0,*rtsptr,memorycheckoveride=0;
@@ -103,8 +102,9 @@ task *TimerPtr=NULL;
 
 extern long lastvisinc;
 
-void timerhandler()
+void timerhandler(task *unused)
 {
+    (void)unused;
     totalclock++;
 }
 
@@ -346,7 +346,7 @@ short user_quote_time[MAXUSERQUOTES];
 char user_quote[MAXUSERQUOTES][128];
 // char typebuflen,typebuf[41];
 
-adduserquote(char *daquote)
+void adduserquote(char *daquote)
 {
     long i;
 
@@ -2610,7 +2610,7 @@ long tempsectorz[MAXSECTORS];
 long tempsectorpicnum[MAXSECTORS];
 //short tempcursectnum;
 
-SE40_Draw(int spnum,long x,long y,long z,short a,short h,long smoothratio)
+void SE40_Draw(int spnum,long x,long y,long z,short a,short h,long smoothratio)
 {
  int i=0,j=0,k=0;
  int floor1=0,floor2=0,ok=0,fofmode=0;
@@ -7278,9 +7278,9 @@ char testcd( char *fn )
  struct find_t dafilet;
  int fil;
 
- union _REGS ir;
- union _REGS or;
- struct _SREGS sr;
+ union REGS ir;
+ union REGS or;
+ struct SREGS sr;
 
  if( IDFSIZE != 9961476 )
  {
@@ -8471,13 +8471,13 @@ char domovethings(void)
 
             if(multiwho != myconnectindex)
             {
-                strcpy(&fta_quotes[122],&ud.user_name[multiwho][0]);
-                strcat(&fta_quotes[122]," SAVED A MULTIPLAYER GAME");
+                strcpy(fta_quotes[122],&ud.user_name[multiwho][0]);
+                strcat(fta_quotes[122]," SAVED A MULTIPLAYER GAME");
                 FTA(122,&ps[myconnectindex]);
             }
             else
             {
-                strcpy(&fta_quotes[122],"MULTIPLAYER GAME SAVED");
+                strcpy(fta_quotes[122],"MULTIPLAYER GAME SAVED");
                 FTA(122,&ps[myconnectindex]);
             }
             break;
@@ -8494,13 +8494,13 @@ char domovethings(void)
             {
                 if(multiwho != myconnectindex)
                 {
-                    strcpy(&fta_quotes[122],&ud.user_name[multiwho][0]);
-                    strcat(&fta_quotes[122]," LOADED A MULTIPLAYER GAME");
+                    strcpy(fta_quotes[122],&ud.user_name[multiwho][0]);
+                    strcat(fta_quotes[122]," LOADED A MULTIPLAYER GAME");
                     FTA(122,&ps[myconnectindex]);
                 }
                 else
                 {
-                    strcpy(&fta_quotes[122],"MULTIPLAYER GAME LOADED");
+                    strcpy(fta_quotes[122],"MULTIPLAYER GAME LOADED");
                     FTA(122,&ps[myconnectindex]);
                 }
                 return 1;

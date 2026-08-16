@@ -15,9 +15,47 @@
 #include <sys\types.h>
 #include <sys\stat.h>
 #include <conio.h>
-#include <i86.h>
 #include "build.h"
 #include "pragmas.h"
+
+/* GCC needs prototypes before calls whose narrow arguments undergo the
+ * default integer promotions. Watcom accepted the original implicit
+ * declarations used by this old C source. */
+int scansector(short sectnum);
+int loadtile(short tilenume);
+int drawmaskwall(short damaskwallcnt);
+int drawvox(long dasprx, long daspry, long dasprz, long dasprang,
+            long daxrepeat, long dayrepeat, char dapicnum,
+            signed char dashade, char dapalnum, long *lwall, long *swall);
+int animateoffs(short tilenum, short fakevar);
+int insertsprite(short sectnum, short statnum);
+int insertspritesect(short sectnum);
+int insertspritestat(short statnum);
+int deletespritesect(short deleteme);
+int deletespritestat(short deleteme);
+int changespritesect(short spritenum, short newsectnum);
+int lastwall(short point);
+int dorotatesprite(long sx, long sy, long z, short a, short picnum,
+                   signed char dashade, char dapalnum, char dastat,
+                   long cx1, long cy1, long cx2, long cy2);
+int setbrightness(char dabrightness, char *dapal);
+int getceilzofslope(short sectnum, long dax, long day);
+int getflorzofslope(short sectnum, long dax, long day);
+int getzsofslope(short sectnum, long dax, long day, long *ceilz, long *florz);
+int wallmost(short *mostbuf, long w, long sectnum, char dastat);
+int grouscan(long dax1, long dax2, long sectnum, char dastat);
+int parascan(long dax1, long dax2, long sectnum, char dastat, long bunch);
+
+#ifndef S_IWRITE
+#define S_IWRITE 0
+#endif
+
+#ifndef interrupt
+#define interrupt
+#endif
+#ifndef far
+#define far
+#endif
 
 long stereowidth = 23040, stereopixelwidth = 28, ostereopixelwidth = -1;
 volatile long stereomode = 0, visualpage, activepage, whiteband, blackband;
