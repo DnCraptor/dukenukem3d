@@ -519,7 +519,7 @@ void stopsound(short num)
     if(Sound[num].num > 0)
     {
         FX_StopSound(SoundOwner[num][Sound[num].num-1].voice);
-        testcallback(num);
+        TestCallBack(num);
     }
 }
 

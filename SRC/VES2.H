@@ -7,6 +7,7 @@
 #include <string.h>
 #include <conio.h>
 #include <dos.h>
+#include "dos_mem.h"
 
 #pragma pack(push,1);
 
@@ -53,6 +54,7 @@ typedef struct
 #pragma pack(pop);
 
 long VESABuf_sel = 0, VESABuf_rseg;
+static void *VESABuf_ptr = NULL;
 short modelist[256];
 static char *screen = NULL, vesachecked = 0;
 long xres, yres, bytesperline, frameplace, imageSize, maxpages;
@@ -182,80 +184,64 @@ short ods, oes, oss;
 
 long DPMI_int86(long intno, RMREGS *in, RMREGS *out)
 {
-	_RMREGS rmregs;
-	union REGS r;
-	struct SREGS sr;
+    union REGS r = {0};
 
-	memset(&rmregs,0,sizeof(rmregs));
-	rmregs.eax = in->x.ax; rmregs.ebx = in->x.bx;
-	rmregs.ecx = in->x.cx; rmregs.edx = in->x.dx;
-	rmregs.esi = in->x.si; rmregs.edi = in->x.di;
-
-	segread(&sr);
-	r.w.ax = 0x300; r.h.bl = intno; r.h.bh = 0; r.w.cx = 0; sr.es = sr.ds;
-	r.x.edi = (unsigned)&rmregs;
-	backupsegs(); int386x(0x31,&r,&r,&sr); restoresegs();
-
-	out->x.ax = rmregs.eax; out->x.bx = rmregs.ebx;
-	out->x.cx = rmregs.ecx; out->x.dx = rmregs.edx;
-	out->x.si = rmregs.esi; out->x.di = rmregs.edi;
-	out->x.cflag = rmregs.flags&1;
-	return(out->x.ax);
+    r.w.ax = in->x.ax; r.w.bx = in->x.bx;
+    r.w.cx = in->x.cx; r.w.dx = in->x.dx;
+    r.w.si = in->x.si; r.w.di = in->x.di;
+    int386((int)intno, &r, &r);
+    out->x.ax = r.w.ax; out->x.bx = r.w.bx;
+    out->x.cx = r.w.cx; out->x.dx = r.w.dx;
+    out->x.si = r.w.si; out->x.di = r.w.di;
+    out->x.cflag = r.x.cflag;
+    return out->x.ax;
 }
 
 long DPMI_int86x(long intno, RMREGS *in, RMREGS *out, RMSREGS *sregs)
 {
-	_RMREGS rmregs;
-	union REGS r;
-	struct SREGS sr;
+    union REGS r = {0};
+    struct SREGS sr = {0};
 
-	memset(&rmregs, 0, sizeof(rmregs));
-	rmregs.eax = in->x.ax; rmregs.ebx = in->x.bx;
-	rmregs.ecx = in->x.cx; rmregs.edx = in->x.dx;
-	rmregs.esi = in->x.si; rmregs.edi = in->x.di;
-	rmregs.es = sregs->es;
-	rmregs.ds = sregs->ds;
-
-	segread(&sr);
-	r.w.ax = 0x300; r.h.bl = intno; r.h.bh = 0; r.w.cx = 0; sr.es = sr.ds;
-	r.x.edi = (unsigned)&rmregs;
-	backupsegs(); int386x(0x31,&r,&r,&sr); restoresegs();
-
-	out->x.ax = rmregs.eax; out->x.bx = rmregs.ebx;
-	out->x.cx = rmregs.ecx; out->x.dx = rmregs.edx;
-	out->x.si = rmregs.esi; out->x.di = rmregs.edi;
-	sregs->es = rmregs.es; sregs->cs = rmregs.cs;
-	sregs->ss = rmregs.ss; sregs->ds = rmregs.ds;
-	out->x.cflag = rmregs.flags&1;
-	return(out->x.ax);
+    r.w.ax = in->x.ax; r.w.bx = in->x.bx;
+    r.w.cx = in->x.cx; r.w.dx = in->x.dx;
+    r.w.si = in->x.si; r.w.di = in->x.di;
+    sr.es = sregs->es; sr.ds = sregs->ds;
+    int386x((int)intno, &r, &r, &sr);
+    out->x.ax = r.w.ax; out->x.bx = r.w.bx;
+    out->x.cx = r.w.cx; out->x.dx = r.w.dx;
+    out->x.si = r.w.si; out->x.di = r.w.di;
+    out->x.cflag = r.x.cflag;
+    sregs->es = sr.es; sregs->ds = sr.ds;
+    sregs->cs = sr.cs; sregs->ss = sr.ss;
+    return out->x.ax;
 }
 
 static void ExitVBEBuf(void)
 {
-	union REGS r;
-	r.w.ax = 0x101; r.w.dx = VESABuf_sel; //DPMI free real seg
-	backupsegs(); int386(0x31,&r,&r); restoresegs();
+    dos_free_low(VESABuf_ptr);
+    VESABuf_ptr = NULL;
+    VESABuf_sel = 0;
+    VESABuf_rseg = 0;
 }
 
 void VBE_callESDI(RMREGS *regs, void *buffer, long size)
 {
-	RMSREGS sregs;
-	union REGS r;
+    RMSREGS sregs = {0};
 
-	if (!VESABuf_sel)  //Init Real mode buffer
-	{
-		r.w.ax = 0x100; r.w.bx = 1024>>4;
-		backupsegs(); int386(0x31,&r,&r); restoresegs();
-		if (r.w.cflag) { printf("DPMI_allocRealSeg failed!\n"); exit(0); }
-		VESABuf_sel = r.w.dx;
-		VESABuf_rseg = r.w.ax;
-		atexit(ExitVBEBuf);
-	}
-	sregs.es = VESABuf_rseg;
-	regs->x.di = 0;
-	_fmemcpy(MK_FP(VESABuf_sel,0),buffer,size);
-	DPMI_int86x(0x10,regs,regs,&sregs);
-	_fmemcpy(buffer,MK_FP(VESABuf_sel,0),size);
+    if (!VESABuf_ptr)
+    {
+        VESABuf_ptr = dos_alloc_low(1024);
+        if (!VESABuf_ptr) { printf("VBE low-memory buffer allocation failed!\n"); exit(0); }
+        VESABuf_rseg = dos_ptr_segment(VESABuf_ptr);
+        VESABuf_sel = VESABuf_rseg;
+        atexit(ExitVBEBuf);
+    }
+    if (size < 0 || size > 1024) { printf("VBE buffer too large!\n"); exit(0); }
+    sregs.es = (unsigned short)VESABuf_rseg;
+    regs->x.di = 0;
+    memcpy(VESABuf_ptr, buffer, (size_t)size);
+    DPMI_int86x(0x10, regs, regs, &sregs);
+    memcpy(buffer, VESABuf_ptr, (size_t)size);
 }
 
 long VBE_getModeInfo(long mode, VBE_modeInfo *modeInfo)
@@ -396,17 +382,9 @@ setvesa(long x, long y)
 		if (modeInfo.ModeAttributes&32) vgacompatible = 0;
 											else vgacompatible = 1;
 
-		regs.x.ax = 0x4f0a; regs.x.bx = 0;
-		DPMI_int86x(0x10,&regs,&regs,&sregs);
-		if (regs.x.ax == 0x004f)   //cx is length of protected mode code
-		{
-			i = (((long)sregs.es)<<4)+((long)regs.x.di);
-			p1 = (short *)i;
-			setactiveentry = ((long)p1[0]) + i;
-			setvisualentry = ((long)p1[1]) + i;
-			setpaletteentry = ((long)p1[2]) + i;
-				//p1[2] is useless palette function - see vesprot.asm for code
-		}
+		/* VBE 4F0Ah returns x86 protected-mode entrypoints. Native ARM code
+		 * cannot call them, so always use the INT 10h fallback. */
+		setactiveentry = setvisualentry = setpaletteentry = 0;
 
 			//Linear mode
 		if (modeInfo.ModeAttributes&128) //128 is vbeMdLinear
@@ -482,13 +460,8 @@ setdacbits(long newdacbits)
 
 #define setvesapage(i)                                      \
 {                                                           \
-	if (setactiveentry)                                      \
-		vesasetactive(0x4f05,0L,0L,i);                        \
-	else                                                     \
-	{                                                        \
-		regs.x.ax = 0x4f05; regs.x.bx = 0; regs.x.dx = i;     \
-		DPMI_int86(0x10,&regs,&regs);                         \
-	}                                                        \
+	regs.x.ax = 0x4f05; regs.x.bx = 0; regs.x.dx = i;        \
+	DPMI_int86(0x10,&regs,&regs);                            \
 }
 
 void setactivepage(long dapagenum)
@@ -630,10 +603,10 @@ void setvisualpage(long dapagenum)
 			if (vgacompatible)
 			{
 				if (dapagenum >= 0) qlimitrate();
-				vesasetvisual(0x4f07,0L,i>>2,i>>18);
+				regs.x.ax = 0x4f07; regs.x.bx = 0; regs.x.cx = i>>2; regs.x.dx = i>>18; DPMI_int86(0x10,&regs,&regs);
 			}
 			else
-				{ vesasetvisual(0x4f07,0x80,i>>2,i>>18); }
+				{ regs.x.ax = 0x4f07; regs.x.bx = 0x80; regs.x.cx = i>>2; regs.x.dx = i>>18; DPMI_int86(0x10,&regs,&regs); }
 
 		}
 		else
@@ -732,8 +705,10 @@ VBE_setPalette(long start, long num, char *dapal)
 
 	if (setpaletteentry)
 	{
-		i = (vesasetpalette(0x4f09,(vgaInfo.Capabilities&4)<<5,
-								  num,start,0L,dapal)&65535);
+		regs.x.ax = 0x4f09; regs.h.bl = ((vgaInfo.Capabilities&4)<<5);
+        regs.x.cx = num; regs.x.dx = start;
+        VBE_callESDI(&regs,dapal,4*num);
+        i = regs.x.ax;
 	}
 	else
 	{

@@ -84,6 +84,10 @@ set(DUKE_BUILD_SOURCES
     audiolib/SOURCE/FX_MAN.C
     audiolib/SOURCE/MULTIVOC.C
     audiolib/SOURCE/PITCH.C
+    audiolib/SOURCE/PORTABLE_MIX.C
+    audiolib/SOURCE/PORTABLE_DMA.C
+    audiolib/SOURCE/PORTABLE_BLASTER_DIGITAL.C
+    source/PORTABLE_LEGACY.C
 )
 
 set(DUKE_SOURCES

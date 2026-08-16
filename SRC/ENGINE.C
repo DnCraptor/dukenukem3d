@@ -8731,6 +8731,11 @@ void *engconvalloc32 (unsigned long size)
 
 installbistereohandlers(void far *stereohan)
 {
+#ifdef ELF_MODE
+	/* Native ARM code cannot be installed as an x86 protected-mode RTC ISR. */
+	(void)stereohan;
+	return 0;
+#else
 	char *ptr;
 	union REGS r;
 	struct SREGS sr;
@@ -8773,10 +8778,14 @@ installbistereohandlers(void far *stereohan)
 	r.x.ecx = ((((long)lowp)>>4)&0xffff);   //D32realseg
 	r.x.edx = (((long)lowp)&0xf);           //D32realoff
 	int386(0x31,&r,&r);
+#endif
 }
 
 uninstallbistereohandlers()
 {
+#ifdef ELF_MODE
+	return 0;
+#else
 	union REGS r;
 	struct SREGS sr;
 
@@ -8793,6 +8802,7 @@ uninstallbistereohandlers()
 	r.x.ecx = (unsigned long)rtcormseg;     //CX:DX == real mode &handler
 	r.x.edx = (unsigned long)rtcormoff;
 	int386(0x31,&r,&r);
+#endif
 }
 
 loopnumofsector(short sectnum, short wallnum)

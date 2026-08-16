@@ -70,7 +70,19 @@ static union REGS regs;
 callcommit()
 {
 	if (gcom->intnum&0xff00)
+	{
+#ifdef ELF_MODE
+		static int warned;
+		if (!warned)
+		{
+			printf("Protected-mode network callback is not supported in native EZ mode.\n");
+			warned = 1;
+		}
+		gcom->other = -1;
+#else
 		longcall(gcom->longcalladdress);
+#endif
+	}
 	else
 		int386(gcom->intnum,&regs,&regs);
 }

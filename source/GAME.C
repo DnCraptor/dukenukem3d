@@ -39,6 +39,7 @@ Prepared for public release: 03/21/2003 - Charlie Wiederhold, 3D Realms
 #include "sndcards.h"
 
 #include "duke3d.h"
+#include "dos_mem.h"
 
 
 #ifdef VOLUMEONE
@@ -6958,7 +6959,7 @@ void Logo(void)
     nextpage();
 #endif
 
-    PlayMusic(&env_music_fn[0][0]);
+    playmusic(&env_music_fn[0][0]);
     for(i=0;i<64;i+=7) palto(0,0,0,i);
     ps[myconnectindex].palette = drealms;
     palto(0,0,0,63);
@@ -7302,11 +7303,17 @@ char testcd( char *fn )
      if (or.w.ax == 0 || or.w.bx != 0xadad)
          return 1;
 
-     ir.w.ax = 0x1502;
-     ir.w.bx = FP_OFF(buf);
-     sr.es = FP_SEG(buf);
-     ir.w.cx = drive;
-     int386x(0x2f, &ir, &or, &sr);
+     {
+         void *mscdex_buf = dos_alloc_low(32);
+         if (mscdex_buf == NULL)
+             return 1;
+         ir.w.ax = 0x1502;
+         ir.w.bx = 0;
+         sr.es = dos_ptr_segment(mscdex_buf);
+         ir.w.cx = drive;
+         int386x(0x2f, &ir, &or, &sr);
+         dos_free_low(mscdex_buf);
+     }
 
      if( or.h.al == 0 || or.h.al == 30)
          return 1;

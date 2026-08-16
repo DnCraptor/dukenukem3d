@@ -2251,7 +2251,7 @@ void menus(void)
                     (numplayers > 1 && eightytwofifty)||MusicToggle==0||(MusicDevice==NumSoundCards));
                 MusicVolume <<= 2;
                 if(l != MusicVolume)
-                    Music_SetVolume( (short) MusicVolume );
+                    MUSIC_SetVolume( (short) MusicVolume );
 
             }
             menutext(c,50+16+16+16+16,SHX(-6),(FXDevice==NumSoundCards)||SoundToggle==0,"DUKE TALK");
