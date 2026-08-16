@@ -655,7 +655,7 @@ playbackstatus MV_GetNextVOCBlock
                }
             else
                {
-               voice->BlockLength  = ( ptr - 4 ) - voice->LoopStart;
+               voice->BlockLength  = ( char * )( ptr - 4 ) - voice->LoopStart;
                voice->sound        = voice->LoopStart;
                voice->position     = 0;
                voice->length       = min( voice->BlockLength, 0x8000 );
@@ -2282,7 +2282,7 @@ int MV_PlayRaw
 int MV_PlayLoopedRaw
    (
    char *ptr,
-   long  length,
+   unsigned long length,
    char *loopstart,
    char *loopend,
    unsigned rate,
