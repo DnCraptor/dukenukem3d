@@ -5,6 +5,15 @@
 #include "dos_phys.h"
 #include "tsm.h"
 
+#include "ez.h"
+#include "dos_api_version.h"
+
+const native_ez_process_requirements __native_ez_process_requirements = {
+    16u * 1024u, /* native ARM stack: max remaining frame is loadtmb() ~8 KiB */
+    4u * 1024u,  /* guest DOS SS:SP stack for BIOS/IRQ servicing */
+    DOS_API_VERSION
+};
+
 /* Watcom pragma helpers used by the released Build sources. */
 void setvmode(long mode)
 {

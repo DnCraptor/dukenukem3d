@@ -148,6 +148,7 @@ target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage -r)
 if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
 target_compile_options(${PROJECT_NAME} PUBLIC
         -fno-jump-tables  # suppress __gnu_thumb1_case_uni symbol generation
+        -fstack-usage       # emit per-function ARM stack frames (*.su)
         -Wno-error=suggest-attribute=format
         -Wno-error=cast-qual
         -Wno-error=unused-parameter

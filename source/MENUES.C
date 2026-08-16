@@ -35,6 +35,7 @@ short probey=0,lastprobey=0,last_menu,globalskillsound=-1;
 short sh,onbar,buttonstat,deletespot;
 short last_zero,last_fifty,last_threehundred = 0;
 static char fileselect = 1, menunamecnt, menuname[256][17], curpath[80], menupath[80];
+static char savegame_scriptptrs[MAXSCRIPTSIZE];
 
 // CTW - REMOVED
 /* Error codes */
@@ -188,7 +189,8 @@ loadplayer(signed char spot)
      short k,music_changed;
      char *fn = "game0.sav";
      char *mpfn = "gameA_00.sav";
-     char *fnptr, scriptptrs[MAXSCRIPTSIZE];
+     char *fnptr;
+     char *scriptptrs = savegame_scriptptrs;
      long fil, bv, i, j, x;
      int32 nump;
 
@@ -505,7 +507,8 @@ saveplayer(signed char spot)
      long i, j;
          char *fn = "game0.sav";
      char *mpfn = "gameA_00.sav";
-     char *fnptr,scriptptrs[MAXSCRIPTSIZE];
+     char *fnptr;
+     char *scriptptrs = savegame_scriptptrs;
          FILE *fil;
      long bv = BYTEVERSION;
 
