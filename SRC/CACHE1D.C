@@ -151,12 +151,12 @@ suckcache (long *suckptr)
 			if ((i > 0) && (*cac[i-1].lock == 0))
 			{
 				cac[i-1].leng += cac[i].leng;
-				cacnum--; copybuf(&cac[i+1],&cac[i],(cacnum-i)*sizeof(cactype));
+				cacnum--; copybufbyte(&cac[i+1],&cac[i],(cacnum-i)*sizeof(cactype));
 			}
 			else if ((i < cacnum-1) && (*cac[i+1].lock == 0))
 			{
 				cac[i+1].leng += cac[i].leng;
-				cacnum--; copybuf(&cac[i+1],&cac[i],(cacnum-i)*sizeof(cactype));
+				cacnum--; copybufbyte(&cac[i+1],&cac[i],(cacnum-i)*sizeof(cactype));
 			}
 		}
 }

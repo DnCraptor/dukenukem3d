@@ -16,6 +16,12 @@
 #else
 #define VBE_DIAG(code) ((void)0)
 #endif
+#ifdef ELF_MODE
+#include "dos_guest_ptr.h"
+#define VES_GUEST_LINEAR(addr) ((long)(uintptr_t)dos_guest_linear_ptr((uint32_t)(addr)))
+#else
+#define VES_GUEST_LINEAR(addr) ((long)(addr))
+#endif
 
 #pragma pack(push,1);
 
@@ -617,16 +623,16 @@ void setvisualpage(long dapagenum)
 
 				i = (p&65535)+dx-65536;
 				if (i <= 0)
-					copybufbyte(p+FP_OFF(screen),(p&65535)+0xa0000,dx);
+					copybufbyte(p+FP_OFF(screen),VES_GUEST_LINEAR((uint32_t)((p&65535)+0xa0000u)),dx);
 				else
 				{
-					copybufbyte(p+FP_OFF(screen),0xb0000-(dx-i),dx-i);
+					copybufbyte(p+FP_OFF(screen),VES_GUEST_LINEAR((uint32_t)(0xb0000u-(dx-i))),dx-i);
 
 					curpag = ((p+dx-1)>>16);
 					setvesapage(curpag<<davesapageshift);
 					faketimerhandler();
 
-					copybufbyte(p+(dx-i)+FP_OFF(screen),0xa0000,i);
+					copybufbyte(p+(dx-i)+FP_OFF(screen),VES_GUEST_LINEAR(0xa0000u),i);
 				}
 				p += ylookup[1];
 			}

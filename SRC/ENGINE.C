@@ -18,6 +18,12 @@
 #include <stdint.h>
 #include "build.h"
 #include "pragmas.h"
+#ifdef ELF_MODE
+#include "dos_guest_ptr.h"
+#define BUILD_GUEST_LINEAR(addr) ((long)(uintptr_t)dos_guest_linear_ptr((uint32_t)(addr)))
+#else
+#define BUILD_GUEST_LINEAR(addr) ((long)(addr))
+#endif
 
 /* GCC needs prototypes before calls whose narrow arguments undergo the
  * default integer promotions. Watcom accepted the original implicit
@@ -2353,7 +2359,7 @@ nextpage()
 					}
 					break;
 				case 2:
-					copybuf(frameplace,0xa0000,64000>>2);
+					copybuf(frameplace,BUILD_GUEST_LINEAR(0xa0000u),64000>>2);
 					break;
 				case 6:
 					if (!activepage) redblueblit(screen,&screen[65536],64000L);
@@ -2637,10 +2643,10 @@ readpixel16(long p)
 	p >>= 3;
 
 	koutp(0x3ce,0x4);
-	koutp(0x3cf,0); dat = ((readpixel(p+0xa0000)&mask)>0);
-	koutp(0x3cf,1); dat += (((readpixel(p+0xa0000)&mask)>0)<<1);
-	koutp(0x3cf,2); dat += (((readpixel(p+0xa0000)&mask)>0)<<2);
-	koutp(0x3cf,3); dat += (((readpixel(p+0xa0000)&mask)>0)<<3);
+	koutp(0x3cf,0); dat = ((readpixel(BUILD_GUEST_LINEAR((uint32_t)p+0xa0000u))&mask)>0);
+	koutp(0x3cf,1); dat += (((readpixel(BUILD_GUEST_LINEAR((uint32_t)p+0xa0000u))&mask)>0)<<1);
+	koutp(0x3cf,2); dat += (((readpixel(BUILD_GUEST_LINEAR((uint32_t)p+0xa0000u))&mask)>0)<<2);
+	koutp(0x3cf,3); dat += (((readpixel(BUILD_GUEST_LINEAR((uint32_t)p+0xa0000u))&mask)>0)<<3);
 	return(dat);
 }
 
@@ -4229,9 +4235,9 @@ ceilspritehline (long x2, long y)
 {
 	long x1, v, bx, by;
 
-	//x = x1 + (x2-x1)t + (y1-y2)u  ³  x = 160v
-	//y = y1 + (y2-y1)t + (x2-x1)u  ³  y = (scrx-160)v
-	//z = z1 = z2                   ³  z = posz + (scry-horiz)v
+	//x = x1 + (x2-x1)t + (y1-y2)u  ï¿½  x = 160v
+	//y = y1 + (y2-y1)t + (x2-x1)u  ï¿½  y = (scrx-160)v
+	//z = z1 = z2                   ï¿½  z = posz + (scry-horiz)v
 
 	x1 = lastx[y]; if (x2 < x1) return;
 
@@ -5743,7 +5749,7 @@ drawline16(long x1, long y1, long x2, long y2, char col)
 	{
 		if (y2 < y1) i = y1, y1 = y2, y2 = i;
 		koutpw(0x3ce,0x8+(256<<(x1&7^7)));  //bit mask
-		vlin16((((mul5(y1)<<7)+x1+pageoffset)>>3)+0xa0000,y2-y1+1);
+		vlin16(BUILD_GUEST_LINEAR((uint32_t)((((mul5(y1)<<7)+x1+pageoffset)>>3)+0xa0000u)),y2-y1+1);
 		return;
 	}
 	if (y1 == y2)
@@ -5752,7 +5758,7 @@ drawline16(long x1, long y1, long x2, long y2, char col)
 		lmask = (0x00ff>>(x1&7));
 		rmask = (0xff80>>(x2&7));
 
-		p = (((mul5(y1)<<7)+x1+pageoffset)>>3)+0xa0000;
+		p = BUILD_GUEST_LINEAR((uint32_t)((((mul5(y1)<<7)+x1+pageoffset)>>3)+0xa0000u));
 
 		dx = (x2>>3)-(x1>>3);
 		if (dx == 0)
@@ -5882,7 +5888,7 @@ draw2dgrid(long posxe, long posye, short ange, long zoome, short gride)
 			setcolor16(8);
 			koutp(0x3ce,0x8);
 
-			templong = ((yp1*640+pageoffset)>>3)+0xa0000;
+			templong = BUILD_GUEST_LINEAR((uint32_t)(((yp1*640+pageoffset)>>3)+0xa0000u));
 			tempy = yp2-yp1+1;
 			mask = 0;
 			xp1 = 320-mulscale14(posxe+131072,zoome);
@@ -6139,7 +6145,7 @@ printext16(long xpos, long ypos, short col, short backcol, char name[82], char f
 		z++;
 
 		mask = pow2char[8-(daxpos&7)]-1;
-		p = ypos*80 + (daxpos>>3)+0xa0000;   //Do not make ylookup!
+		p = BUILD_GUEST_LINEAR((uint32_t)(ypos*80 + (daxpos>>3)+0xa0000u));   //Do not make ylookup!
 
 		if ((daxpos&7) == 0)
 		{

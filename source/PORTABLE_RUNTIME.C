@@ -8,6 +8,7 @@
 #include <io.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include "dos_diag.h"
 
 int32 _argc;
 char **_argv;
@@ -30,13 +31,25 @@ int atexit(void (*function)(void))
 
 void _fini(void *ctx)
 {
+#if DIAG
+    dos_diag_set(0xD3F10000u | ((uint32_t)duke_atexit_count & 0xffu));
+#endif
     (void)ctx;
     while (duke_atexit_count > 0)
     {
         void (*fn)(void) = duke_atexit_handlers[--duke_atexit_count];
+#if DIAG
+        dos_diag_set(0xD3F10100u | ((uint32_t)duke_atexit_count & 0xffu));
+#endif
         if (fn)
             fn();
+#if DIAG
+        dos_diag_set(0xD3F10200u | ((uint32_t)duke_atexit_count & 0xffu));
+#endif
     }
+#if DIAG
+    dos_diag_set(0xD3F1FFFFu);
+#endif
 }
 
 void *_fmemcpy(void *dst, const void *src, size_t n)

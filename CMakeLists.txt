@@ -166,7 +166,7 @@ endif ()
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     ELF_MODE
-    DIAG=1
+    #DIAG=1
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${BUILD_NAME}")

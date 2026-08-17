@@ -1953,7 +1953,11 @@ void binscreen(void)
     fil = kopen4load("duke3d.bin",1);
 #endif
     if(fil == -1) return;
+#ifdef ELF_MODE
+    kread(fil,(char *)dos_guest_linear_ptr(0xb8000u),4000);
+#else
     kread(fil,(char *)0xb8000,4000);
+#endif
     kclose(fil);
 }
 
@@ -6947,23 +6951,33 @@ void Logo(void)
 {
     short i,j,soundanm;
 
+    DUKE_DIAG(0xD3010000u);
     soundanm = 0;
 
     ready2send = 0;
 
+    DUKE_DIAG(0xD3010001u);
     KB_FlushKeyboardQueue();
+    DUKE_DIAG(0xD3010002u);
 
     setview(0,0,xdim-1,ydim-1);
+    DUKE_DIAG(0xD3010003u);
     clearview(0L);
+    DUKE_DIAG(0xD3010004u);
     palto(0,0,0,63);
+    DUKE_DIAG(0xD3010005u);
 
     flushperms();
+    DUKE_DIAG(0xD3010006u);
     nextpage();
+    DUKE_DIAG(0xD3010007u);
 
     MUSIC_StopSong();
+    DUKE_DIAG(0xD3010008u);
 
 #ifdef VOLUMEALL
 
+    DUKE_DIAG(0xD3010010u);
     if(!KB_KeyWaiting() && nomorelogohack == 0)
     {
         getpackets();
@@ -6976,19 +6990,33 @@ void Logo(void)
     nextpage();
 #endif
 
+    DUKE_DIAG(0xD3010020u);
     playmusic(&env_music_fn[0][0]);
+    DUKE_DIAG(0xD3010021u);
     for(i=0;i<64;i+=7) palto(0,0,0,i);
+    DUKE_DIAG(0xD3010022u);
     ps[myconnectindex].palette = drealms;
     palto(0,0,0,63);
+    DUKE_DIAG(0xD3010023u);
     rotatesprite(0,0,65536L,0,DREALMS,0,0,2+8+16+64, 0,0,xdim-1,ydim-1);
-    nextpage(); for(i=63;i>0;i-=7) palto(0,0,0,i);
+    DUKE_DIAG(0xD3010024u);
+    nextpage();
+    DUKE_DIAG(0xD3010025u);
+    for(i=63;i>0;i-=7) palto(0,0,0,i);
+    DUKE_DIAG(0xD3010026u);
     totalclock = 0;
+    DUKE_DIAG(0xD3010027u);
     while( totalclock < (120*7) && !KB_KeyWaiting() )
         getpackets();
+    DUKE_DIAG(0xD3010028u);
 
+    DUKE_DIAG(0xD3010030u);
     for(i=0;i<64;i+=7) palto(0,0,0,i);
+    DUKE_DIAG(0xD3010031u);
     clearview(0L);
+    DUKE_DIAG(0xD3010032u);
     nextpage();
+    DUKE_DIAG(0xD3010033u);
 
     ps[myconnectindex].palette = titlepal;
     flushperms();
@@ -7445,6 +7473,7 @@ void main(int argc,char **argv)
     totalmemory = Z_AvailHeap();
     DUKE_DIAG(0xD3000007u);
 
+#ifndef ELF_MODE
     if(memorycheckoveride == 0)
     {
         if(totalmemory < (3162000-350000))
@@ -7458,6 +7487,7 @@ void main(int argc,char **argv)
     }
     else
         printf("Using %ld bytes for heap.\n",totalmemory);
+#endif
 
 #ifndef ONELEVELDEMO
 // CTW - REMOVED
@@ -7576,13 +7606,21 @@ void main(int argc,char **argv)
             gameexit(" The full version of Duke Nukem 3D supports 5 or more players.");
 #endif
 
+    DUKE_DIAG(0xD3000040u);
     setbrightness(ud.brightness>>2,&ps[myconnectindex].palette[0]);
+    DUKE_DIAG(0xD3000041u);
 
+    DUKE_DIAG(0xD3000042u);
     ESCESCAPE;
+    DUKE_DIAG(0xD3000043u);
 
+    DUKE_DIAG(0xD3000044u);
     FX_StopAllSounds();
+    DUKE_DIAG(0xD3000045u);
     clearsoundlocks();
+    DUKE_DIAG(0xD3000046u);
 
+    DUKE_DIAG(0xD3000047u);
     if(ud.warp_on > 1 && ud.multimode < 2)
     {
         clearview(0L);
@@ -7599,10 +7637,16 @@ void main(int argc,char **argv)
 
 //    getpackets();
 
+    DUKE_DIAG(0xD3000048u);
     MAIN_LOOP_RESTART:
 
+    DUKE_DIAG(0xD3000049u);
     if(ud.warp_on == 0)
+    {
+        DUKE_DIAG(0xD300004Au);
         Logo();
+        DUKE_DIAG(0xD300004Bu);
+    }
     else if(ud.warp_on == 1)
     {
         newgame(ud.m_volume_number,ud.m_level_number,ud.m_player_skill);
