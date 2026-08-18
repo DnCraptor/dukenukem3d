@@ -7473,7 +7473,6 @@ void main(int argc,char **argv)
     totalmemory = Z_AvailHeap();
     DUKE_DIAG(0xD3000007u);
 
-#ifndef ELF_MODE
     if(memorycheckoveride == 0)
     {
         if(totalmemory < (3162000-350000))
@@ -7487,7 +7486,6 @@ void main(int argc,char **argv)
     }
     else
         printf("Using %ld bytes for heap.\n",totalmemory);
-#endif
 
 #ifndef ONELEVELDEMO
 // CTW - REMOVED

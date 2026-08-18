@@ -84,6 +84,7 @@ volatile char oa1, o3c2, ortca, ortcb, overtbits, laststereoint;
 	//MUST CALL MALLOC THIS WAY TO FORCE CALLS TO KMALLOC!
 void *kmalloc(size_t size) { return(malloc(size)); }
 void *kkmalloc(size_t size) { return kmalloc(size); }
+extern size_t malloc_largest_block(void);
 
 	//MUST CALL FREE THIS WAY TO FORCE CALLS TO KFREE!
 void kfree(void *buffer) { free(buffer); }
@@ -2525,12 +2526,12 @@ loadpics(char *filename)
 
 	//try dpmi_DETERMINEMAXREALALLOC!
 
-	cachesize = max(artsize,1048576);
-	while ((pic = (char *)kkmalloc(cachesize)) == NULL)
-	{
-		cachesize -= 65536L;
-		if (cachesize < 65536) return(-1);
-	}
+	cachesize = (long)malloc_largest_block();
+	if (cachesize < 65536)
+		return(-1);
+	pic = (char *)kkmalloc(cachesize);
+	if (pic == NULL)
+		return(-1);
 	initcache((FP_OFF(pic)+15)&0xfffffff0,(cachesize-((-FP_OFF(pic))&15))&0xfffffff0);
 
 	for(i=0;i<MAXTILES;i++)

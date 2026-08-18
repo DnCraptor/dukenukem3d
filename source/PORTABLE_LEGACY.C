@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 #include <dos.h>
 #include <conio.h>
 #include "dos_phys.h"
@@ -64,6 +65,9 @@ void redblueblit(char *red, char *blue, long bytes)
 /* Return the largest currently available DOS block, in bytes. */
 long Z_AvailHeap(void)
 {
+#ifdef ELF_MODE
+    return (long)malloc_largest_block();
+#else
     union REGS regs = {0};
 
     regs.h.ah = 0x48;
@@ -85,6 +89,7 @@ long Z_AvailHeap(void)
     }
 
     return (long)(0xffffu << 4);
+#endif
 }
 
 
