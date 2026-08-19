@@ -29,12 +29,17 @@ int atexit(void (*function)(void))
     return 0;
 }
 
+void Shutdown(void);
+
 void _fini(void *ctx)
 {
 #if DIAG
     dos_diag_set(0xD3F10000u | ((uint32_t)duke_atexit_count & 0xffu));
 #endif
     (void)ctx;
+
+    Shutdown();
+
     while (duke_atexit_count > 0)
     {
         void (*fn)(void) = duke_atexit_handlers[--duke_atexit_count];
@@ -47,9 +52,6 @@ void _fini(void *ctx)
         dos_diag_set(0xD3F10200u | ((uint32_t)duke_atexit_count & 0xffu));
 #endif
     }
-#if DIAG
-    dos_diag_set(0xD3F1FFFFu);
-#endif
 }
 
 void *_fmemcpy(void *dst, const void *src, size_t n)

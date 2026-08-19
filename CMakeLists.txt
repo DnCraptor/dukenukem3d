@@ -166,7 +166,7 @@ endif ()
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     ELF_MODE
-    #DIAG=1
+    DIAG=1
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${BUILD_NAME}")
@@ -190,8 +190,8 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_FILE:${PROJECT_NAME}>
         ${COMPILED_DIR}/${BUILD_NAME}.com
-#    COMMAND ${ELF2EZ_TOOL}
-#        /y ${COMPILED_DIR}/${BUILD_NAME}.com
+    COMMAND ${ELF2EZ_TOOL}
+        /y ${COMPILED_DIR}/${BUILD_NAME}.com
 #    COMMAND ${CMAKE_COMMAND} -E rm -f
 #        ${COMPILED_DIR}/${BUILD_NAME}.com
 )

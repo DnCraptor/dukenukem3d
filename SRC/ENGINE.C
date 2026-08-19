@@ -2081,9 +2081,16 @@ loadpalette()
 	kread(fil,&numpalookups,2);
 
 	if ((palookup[0] = (char *)kkmalloc(numpalookups<<8)) == NULL)
+	{
+		printf("BUILD: malloc(%ld) for palette lookup failed; using cache.\n",
+		       (long)(numpalookups<<8));
 		allocache(&palookup[0],numpalookups<<8,&permanentlock);
+	}
 	if ((transluc = (char *)kkmalloc(65536L)) == NULL)
+	{
+		printf("BUILD: malloc(65536) for translucency table failed; using cache.\n");
 		allocache(&transluc,65536,&permanentlock);
+	}
 
 	globalpalwritten = palookup[0]; globalpal = 0;
 	setpalookupaddress(globalpalwritten);
@@ -2284,7 +2291,9 @@ initengine()
 	visibility = 512;
 	parallaxvisibility = 512;
 
+#ifndef ELF_MODE
 	loadpalette();
+#endif
 }
 
 uninitengine()
@@ -2528,10 +2537,21 @@ loadpics(char *filename)
 
 	cachesize = (long)malloc_largest_block();
 	if (cachesize < 65536)
+	{
+		printf("\nBUILD: cannot allocate cache arena.\n");
+		printf("  art=%ld bytes, largest malloc block=%ld bytes (minimum 65536)\n",
+		       artsize,cachesize);
 		return(-1);
+	}
 	pic = (char *)kkmalloc(cachesize);
 	if (pic == NULL)
+	{
+		printf("\nBUILD: cache malloc(%ld) failed although it was reported as largest block.\n",
+		       cachesize);
+		printf("  art=%ld bytes, largest malloc block now=%lu bytes\n",
+		       artsize,(unsigned long)malloc_largest_block());
 		return(-1);
+	}
 	initcache((FP_OFF(pic)+15)&0xfffffff0,(cachesize-((-FP_OFF(pic))&15))&0xfffffff0);
 
 	for(i=0;i<MAXTILES;i++)

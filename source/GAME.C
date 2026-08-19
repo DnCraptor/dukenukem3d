@@ -7201,7 +7201,16 @@ void Startup(void)
 
    puts("* Hold Esc to Abort. *");
    puts("Loading art header.");
-   loadpics("tiles000.art");
+   i = loadpics("tiles000.art");
+   if(i < 0)
+   {
+       puts("ERROR: BUILD cache initialization failed.");
+       exit(1);
+   }
+
+#ifdef ELF_MODE
+   loadpalette();
+#endif
 
    readsavenames();
 
