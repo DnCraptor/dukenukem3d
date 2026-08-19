@@ -367,15 +367,25 @@ kread(long handle, void *buffer, long leng)
 	if (groupfil[groupnum] != -1)
 	{
 		i = gfileoffs[groupnum][filenum]+filepos[handle];
-		if (i != groupfilpos[groupnum])
-		{
-			lseek(groupfil[groupnum],i+((gnumfiles[groupnum]+1)<<4),SEEK_SET);
-			groupfilpos[groupnum] = i;
-		}
+
+		/*
+		 * Do not rely on groupfilpos[] as a source of truth for the shared
+		 * GRP file descriptor.  Re-establish the absolute file position for
+		 * every grouped read.  This keeps logical entry offsets correct even
+		 * if the underlying descriptor position was changed elsewhere.
+		 */
+		if (lseek(groupfil[groupnum],
+		          i+((gnumfiles[groupnum]+1)<<4),SEEK_SET) < 0)
+			return(-1);
+		groupfilpos[groupnum] = i;
+
 		leng = min(leng,(gfileoffs[groupnum][filenum+1]-gfileoffs[groupnum][filenum])-filepos[handle]);
 		leng = read(groupfil[groupnum],buffer,leng);
-		filepos[handle] += leng;
-		groupfilpos[groupnum] += leng;
+		if (leng > 0)
+		{
+			filepos[handle] += leng;
+			groupfilpos[groupnum] += leng;
+		}
 		return(leng);
 	}
 

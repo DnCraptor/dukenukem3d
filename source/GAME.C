@@ -376,6 +376,9 @@ void getpackets(void)
     short other, packbufleng;
     input *osyn, *nsyn;
 
+    /* Native TASKMAN is cooperative: pump it before any early return. */
+    TSM_Yield();
+
     if(qe == 0 && KB_KeyPressed(sc_LeftControl) && KB_KeyPressed(sc_LeftAlt) && KB_KeyPressed(sc_Delete))
     {
         qe = 1;
