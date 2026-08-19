@@ -1,5 +1,6 @@
 /* Native ELF/EZ applications are resident ARM code; DPMI locking is a no-op. */
 #include "dpmi.h"
+#include <stdio.h>
 #include <dos.h>
 #include "dos_mem.h"
 
@@ -16,7 +17,9 @@ int DPMI_GetDOSMemory(void **ptr, int *descriptor, unsigned length)
     if (ptr == 0 || descriptor == 0)
         return DPMI_Error;
 
+    printf("DPMI: dos_alloc_low(%u)\n", length);
     p = dos_alloc_low((size_t)length);
+    printf("DPMI: dos_alloc_low -> %p\n", p);
     if (p == 0)
         return DPMI_Error;
 
@@ -24,6 +27,7 @@ int DPMI_GetDOSMemory(void **ptr, int *descriptor, unsigned length)
     if (segment == 0)
         return DPMI_Error;
 
+    printf("DPMI: segment=%04x\n", segment);
     *ptr = p;
     *descriptor = (int)segment;
     return DPMI_Ok;
@@ -37,6 +41,7 @@ int DPMI_FreeDOSMemory(int descriptor)
     if (descriptor <= 0 || descriptor > 0xffff)
         return DPMI_Error;
 
+    segread(&sregs);
     regs.h.ah = 0x49;
     sregs.es = (uint16_t)descriptor;
     int386x(0x21, &regs, &regs, &sregs);

@@ -29,6 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
    (c) Copyright 1993 James R. Dose.  All Rights Reserved.
 **********************************************************************/
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dos.h>
@@ -49,6 +50,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "multivoc.h"
 #include "_multivc.h"
 #include "debugio.h"
+#include "tsm.h"
 
 #define RoundFixed( fixedval, bits )            \
         (                                       \
@@ -2960,6 +2962,8 @@ int MV_TestPlayback
          {
          status = MV_Ok;
          }
+
+      TSM_Yield();
       }
 
    RestoreInterrupts( flags );
@@ -3042,6 +3046,8 @@ int MV_Init
    int  buffer;
    int  index;
 
+   puts("MV: enter");
+
    if ( MV_Installed )
       {
       MV_Shutdown();
@@ -3049,14 +3055,18 @@ int MV_Init
 
    MV_SetErrorCode( MV_Ok );
 
+   puts("MV: lock");
    status = MV_LockMemory();
+   puts("MV: lock done");
    if ( status != MV_Ok )
       {
       return( status );
       }
 
    MV_TotalMemory = Voices * sizeof( VoiceNode ) + sizeof( HARSH_CLIP_TABLE_8 );
+   printf("MV: heap alloc %d\n", MV_TotalMemory);
    status = USRHOOKS_GetMem( ( void ** )&ptr, MV_TotalMemory );
+   puts("MV: heap alloc done");
    if ( status != USRHOOKS_Ok )
       {
       MV_UnlockMemory();
@@ -3088,8 +3098,10 @@ int MV_Init
       }
 
    // Allocate mix buffer within 1st megabyte
+   printf("MV: DOS alloc %d\n", 2 * TotalBufferSize);
    status = DPMI_GetDOSMemory( ( void ** )&ptr, &MV_BufferDescriptor,
       2 * TotalBufferSize );
+   puts("MV: DOS alloc returned");
 
    if ( status )
       {
@@ -3106,6 +3118,7 @@ int MV_Init
    MV_SetReverseStereo( FALSE );
 
    // Initialize the sound card
+   printf("MV: backend switch %d\n", soundcard);
    switch( soundcard )
       {
       case UltraSound :
@@ -3152,7 +3165,9 @@ int MV_Init
       #ifndef SOUNDSOURCE_OFF
       case SoundSource :
       case TandySoundSource :
+         puts("MV: SS_Init");
          status = SS_Init( soundcard );
+         printf("MV: SS_Init returned %d\n", status);
          if ( status != SS_Ok )
             {
             MV_SetErrorCode( MV_SoundSourceError );
@@ -3169,13 +3184,18 @@ int MV_Init
       {
       status = MV_ErrorCode;
 
+      puts("MV: cleanup unlock/free voices");
       DPMI_UnlockMemory( MV_Voices, MV_TotalMemory );
       USRHOOKS_FreeMem( MV_Voices );
       MV_Voices      = NULL;
       MV_TotalMemory = 0;
+      puts("MV: cleanup voices done");
 
+      printf("MV: cleanup DOS free descriptor=%d\n", MV_BufferDescriptor);
       DPMI_FreeDOSMemory( MV_BufferDescriptor );
+      puts("MV: cleanup DOS free done");
       MV_UnlockMemory();
+      puts("MV: cleanup unlock done");
 
       MV_SetErrorCode( status );
       return( MV_Error );

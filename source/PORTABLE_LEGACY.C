@@ -31,8 +31,9 @@ void int5(void)
 
 void qlimitrate(void)
 {
-    while (inp(0x3da) & 1)
-        TSM_Yield();
+    unsigned n;
+
+    for (n = 0; n < 1024u && (inp(0x3da) & 1); ++n) { }
 }
 
 /* int386x() already preserves/restores the native application's x86 segments. */

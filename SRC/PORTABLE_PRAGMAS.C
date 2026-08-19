@@ -241,8 +241,10 @@ void fillscreen16(long offset, long color, long pixels)
 
 void limitrate(void)
 {
-    while (inp(0x3da) & 8u) { }
-    while (!(inp(0x3da) & 8u)) { }
+    unsigned n;
+
+    for (n = 0; n < 1024u && (inp(0x3da) & 8u); ++n) { }
+    for (n = 0; n < 1024u && !(inp(0x3da) & 8u); ++n) { }
 }
 
 int setupmouse(void)

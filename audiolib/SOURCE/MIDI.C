@@ -43,6 +43,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "_midi.h"
 #include "midi.h"
 #include "debugio.h"
+#include "tsm.h"
 
 extern int MUSIC_SoundDevice;
 
@@ -956,7 +957,7 @@ int MIDI_Reset
    _enable();
    time = clock() + CLOCKS_PER_SEC/24;
    while(clock() < time)
-      ;
+      TSM_Yield();
 
    RestoreInterrupts( flags );
 

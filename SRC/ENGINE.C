@@ -20,6 +20,7 @@
 #include "pragmas.h"
 #ifdef ELF_MODE
 #include "dos_guest_ptr.h"
+#include "dos_phys.h"
 #define BUILD_GUEST_LINEAR(addr) ((long)(uintptr_t)dos_guest_linear_ptr((uint32_t)(addr)))
 #else
 #define BUILD_GUEST_LINEAR(addr) ((long)(addr))
@@ -2369,7 +2370,14 @@ nextpage()
 					}
 					break;
 				case 2:
-					copybuf(frameplace,BUILD_GUEST_LINEAR(0xa0000u),64000>>2);
+				{
+					const uint32_t *src =
+						(const uint32_t *)(uintptr_t)(uint32_t)frameplace;
+					long n;
+
+					for (n = 0; n < (64000 >> 2); ++n)
+						dos_phys_write32(0xa0000u + ((uint32_t)n << 2), src[n]);
+				}
 					break;
 				case 6:
 					if (!activepage) redblueblit(screen,&screen[65536],64000L);

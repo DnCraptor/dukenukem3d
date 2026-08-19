@@ -804,11 +804,14 @@ int MUSIC_InitMidi
          }
       }
 
+   printf("MUSIC: MPU_Init port=%x\n", Address);
    if ( MPU_Init( Address ) != MPU_Ok )
       {
+      puts("MUSIC: MPU_Init FAIL");
       MUSIC_SetErrorCode( MUSIC_MPU401Error );
       return( MUSIC_Error );
       }
+   puts("MUSIC: MPU_Init OK");
 
    Funcs->NoteOff           = MPU_NoteOff;
    Funcs->NoteOn            = MPU_NoteOn;

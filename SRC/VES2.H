@@ -701,7 +701,7 @@ VBE_setPalette(long start, long num, char *dapal)
 {
 	RMREGS regs;
 	long i, j, k;
-	char palquick[768];
+	//char palquick[768];
 
 	if (stereomode == 1)
 	{
@@ -723,9 +723,9 @@ VBE_setPalette(long start, long num, char *dapal)
 		j = 0; k = (start<<2);
 		for(i=0;i<num;i++)
 		{
-			palquick[j] = dapal[k+2];
-			palquick[j+1] = dapal[k+1];
-			palquick[j+2] = dapal[k];
+			//palquick[j] = dapal[k+2];
+			//palquick[j+1] = dapal[k+1];
+			//palquick[j+2] = dapal[k];
 			j += 3; k += 4;
 		}
 		//setpalettequick(start,num,palquick);
@@ -733,16 +733,28 @@ VBE_setPalette(long start, long num, char *dapal)
 		for(i=(num>>1);i>0;i--)
 		{
 			koutp(0x3c9,dapal[2]);
-			while (kinp(0x3da)&1); while (!(kinp(0x3da)&1));
-										  koutp(0x3c9,dapal[1]); koutp(0x3c9,dapal[0]);
+#ifndef ELF_MODE
+			while (kinp(0x3da)&1);
+			while (!(kinp(0x3da)&1));
+#endif
+			koutp(0x3c9,dapal[1]); koutp(0x3c9,dapal[0]);
 			koutp(0x3c9,dapal[6]); koutp(0x3c9,dapal[5]); koutp(0x3c9,dapal[4]);
 			dapal += 8;
+#ifndef ELF_MODE
+			TSM_Yield();
+#endif
 		}
 		if (num&1)
 		{
 			koutp(0x3c9,dapal[2]);
-			while (kinp(0x3da)&1); while (!(kinp(0x3da)&1));
-										  koutp(0x3c9,dapal[1]); koutp(0x3c9,dapal[0]);
+#ifndef ELF_MODE
+			while (kinp(0x3da)&1);
+			while (!(kinp(0x3da)&1));
+#endif
+			koutp(0x3c9,dapal[1]); koutp(0x3c9,dapal[0]);
+#ifndef ELF_MODE
+			TSM_Yield();
+#endif
 		}
 		return(1);
 	}

@@ -31,6 +31,7 @@ Prepared for public release: 03/21/2003 - Charlie Wiederhold, 3D Realms
 #include <ctype.h>
 #include <time.h>
 #include <dos.h>
+#include "dos_yield.h"
 #include "duke3d.h"
 #include "scriplib.h"
 
@@ -158,6 +159,7 @@ void CONFIG_GetSetupFilename( void )
             oldtime = clock()+CLOCKS_PER_SEC;
             count--;
             }
+         (void)dos_yield();
          if (KB_KeyWaiting())
             {
             int32 ch = KB_Getch();
@@ -177,7 +179,7 @@ void CONFIG_GetSetupFilename( void )
    i=clock()+(3*CLOCKS_PER_SEC/4);
    while (clock()<i)
       {
-      ;
+      (void)dos_yield();
       }
    for (i=0;i<numfiles;i++)
       {
