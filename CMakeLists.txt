@@ -189,9 +189,9 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     # temporarily in apps/compiled and remove it after conversion.
     COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_FILE:${PROJECT_NAME}>
-        ${COMPILED_DIR}/${BUILD_NAME}.crt
-    COMMAND ${ELF2EZ_TOOL}
-        /y ${COMPILED_DIR}/${BUILD_NAME}.crt
-    COMMAND ${CMAKE_COMMAND} -E rm -f
-        ${COMPILED_DIR}/${BUILD_NAME}.crt
+        ${COMPILED_DIR}/${BUILD_NAME}.com
+#    COMMAND ${ELF2EZ_TOOL}
+#        /y ${COMPILED_DIR}/${BUILD_NAME}.com
+#    COMMAND ${CMAKE_COMMAND} -E rm -f
+#        ${COMPILED_DIR}/${BUILD_NAME}.com
 )
