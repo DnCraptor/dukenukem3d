@@ -2483,6 +2483,7 @@ allocatepermanenttile(short tilenume, long xsiz, long ysiz)
 loadpics(char *filename)
 {
 	long offscount, siz, localtilestart, localtileend, dasiz;
+	long filelen, tilecount;
 	short fil, i, j, k;
 
 	strcpy(artfilename,filename);
@@ -2506,21 +2507,72 @@ loadpics(char *filename)
 		artfilename[5] = ((k/100)%10)+48;
 		if ((fil = kopen4load(artfilename,0)) != -1)
 		{
+			filelen = kfilelength(fil);
+			if (filelen < 16)
+			{
+				printf("\nBUILD: ART header is truncated: %s length=%ld, need at least 16 bytes\n",
+				       artfilename,filelen);
+				kclose(fil);
+				return(-1);
+			}
+
 			kread(fil,&artversion,4);
-			if (artversion != 1) return(-1);
+			if (artversion != 1)
+			{
+				printf("\nBUILD: unsupported ART version in %s: version=%ld, expected=1, length=%ld\n",
+				       artfilename,artversion,filelen);
+				kclose(fil);
+				return(-1);
+			}
 			kread(fil,&numtiles,4);
 			kread(fil,&localtilestart,4);
 			kread(fil,&localtileend,4);
-			kread(fil,&tilesizx[localtilestart],(localtileend-localtilestart+1)<<1);
-			kread(fil,&tilesizy[localtilestart],(localtileend-localtilestart+1)<<1);
-			kread(fil,&picanm[localtilestart],(localtileend-localtilestart+1)<<2);
 
-			offscount = 4+4+4+4+((localtileend-localtilestart+1)<<3);
+			if (localtilestart < 0 || localtileend < localtilestart ||
+			    localtileend >= MAXTILES)
+			{
+				printf("\nBUILD: invalid ART tile range in %s: start=%ld end=%ld MAXTILES=%d numtiles=%ld\n",
+				       artfilename,localtilestart,localtileend,MAXTILES,numtiles);
+				kclose(fil);
+				return(-1);
+			}
+
+			tilecount = localtileend-localtilestart+1;
+			offscount = 16+(tilecount<<3);
+			if (offscount > filelen)
+			{
+				printf("\nBUILD: ART tables are truncated in %s: length=%ld header+tables=%ld "
+				       "start=%ld end=%ld\n",
+				       artfilename,filelen,offscount,localtilestart,localtileend);
+				kclose(fil);
+				return(-1);
+			}
+
+			kread(fil,&tilesizx[localtilestart],tilecount<<1);
+			kread(fil,&tilesizy[localtilestart],tilecount<<1);
+			kread(fil,&picanm[localtilestart],tilecount<<2);
+
 			for(i=localtilestart;i<=localtileend;i++)
 			{
+				if (tilesizx[i] < 0 || tilesizy[i] < 0)
+				{
+					printf("\nBUILD: invalid ART tile dimensions in %s: tile=%d width=%d height=%d\n",
+					       artfilename,i,tilesizx[i],tilesizy[i]);
+					kclose(fil);
+					return(-1);
+				}
+
 				tilefilenum[i] = k;
 				tilefileoffs[i] = offscount;
-				dasiz = (long)(tilesizx[i]*tilesizy[i]);
+				dasiz = (long)tilesizx[i]*(long)tilesizy[i];
+				if (offscount > filelen || dasiz > filelen-offscount)
+				{
+					printf("\nBUILD: ART pixel data is truncated in %s: tile=%d offset=%ld "
+					       "size=%ld length=%ld\n",
+					       artfilename,i,offscount,dasiz,filelen);
+					kclose(fil);
+					return(-1);
+				}
 				offscount += dasiz;
 				artsize += ((dasiz+15)&0xfffffff0);
 			}
