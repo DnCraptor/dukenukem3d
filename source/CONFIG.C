@@ -635,18 +635,29 @@ void CONFIG_ReadSetup( void )
    SCRIPT_GetNumber( scripthandle, "Sound Setup", "NumBits",&NumBits);
    SCRIPT_GetNumber( scripthandle, "Sound Setup", "MixRate",&MixRate);
    SCRIPT_GetNumber( scripthandle, "Sound Setup", "MidiPort",&MidiPort);
+
+   /* SCRIPT_GetNumber leaves its destination untouched when an optional key
+      is absent.  Seed each temporary from the field it belongs to instead of
+      accidentally inheriting the previous Sound Setup value. */
+   dummy = (int32)BlasterConfig.Address;
    SCRIPT_GetNumber( scripthandle, "Sound Setup", "BlasterAddress",&dummy);
    BlasterConfig.Address = dummy;
+   dummy = (int32)BlasterConfig.Type;
    SCRIPT_GetNumber( scripthandle, "Sound Setup", "BlasterType",&dummy);
    BlasterConfig.Type = dummy;
+   dummy = (int32)BlasterConfig.Interrupt;
    SCRIPT_GetNumber( scripthandle, "Sound Setup", "BlasterInterrupt",&dummy);
    BlasterConfig.Interrupt = dummy;
+   dummy = (int32)BlasterConfig.Dma8;
    SCRIPT_GetNumber( scripthandle, "Sound Setup", "BlasterDma8",&dummy);
    BlasterConfig.Dma8 = dummy;
+   dummy = (int32)BlasterConfig.Dma16;
    SCRIPT_GetNumber( scripthandle, "Sound Setup", "BlasterDma16",&dummy);
    BlasterConfig.Dma16 = dummy;
+   dummy = (int32)BlasterConfig.Emu;
    SCRIPT_GetNumber( scripthandle, "Sound Setup", "BlasterEmu",&dummy);
    BlasterConfig.Emu = dummy;
+   dummy = ReverseStereo;
    SCRIPT_GetNumber( scripthandle, "Sound Setup", "ReverseStereo",&dummy);
    ReverseStereo = dummy;
 

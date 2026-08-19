@@ -369,9 +369,7 @@ int FX_Init
       return( FX_Error );
       }
 
-   puts("FX: LL_LockMemory");
    status = LL_LockMemory();
-   puts("FX: LL_LockMemory done");
    if ( status != LL_Ok )
       {
       FX_SetErrorCode( FX_DPMI_Error );

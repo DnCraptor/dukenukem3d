@@ -36,6 +36,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "dpmi.h"
 #include "user.h"
 #include "mpu401.h"
+#include "sound_hw.h"
 
 #define MIDI_NOTE_OFF         0x80
 #define MIDI_NOTE_ON          0x90
@@ -79,25 +80,7 @@ void MPU_SendMidi
    )
 
    {
-   int      port = MPU_BaseAddr + 1;
-   unsigned count;
-
-   count = MPU_Delay;
-   while( count > 0 )
-      {
-      // check if status port says we're ready for write
-      if ( !( inp( port ) & MPU_ReadyToWrite ) )
-         {
-         break;
-         }
-
-      count--;
-      }
-
-   port--;
-
-   // Send the midi data
-   outp( port, data );
+   outp( MPU_BaseAddr, data );
    }
 
 
@@ -249,21 +232,7 @@ void MPU_SendCommand
    )
 
    {
-   int      port = MPU_BaseAddr + 1;
-   unsigned count;
-
-   count = 0xffff;
-   while( count > 0 )
-      {
-      // check if status port says we're ready for write
-      if ( !( inp( port ) & MPU_ReadyToWrite ) )
-         {
-         break;
-         }
-      count--;
-      }
-
-   outp( port, data );
+   outp( MPU_BaseAddr + 1, data );
    }
 
 
@@ -279,33 +248,8 @@ int MPU_Reset
    )
 
    {
-   int      port = MPU_BaseAddr + 1;
-   unsigned count;
-
-   // Output "Reset" command via Command port
    MPU_SendCommand( MPU_CmdReset );
-
-   // Wait for status port to be ready for read
-   count = 0xffff;
-   while( count > 0 )
-      {
-      if ( !( inp( port ) & MPU_ReadyToRead ) )
-         {
-         port--;
-
-         // Check for a successful reset
-         if ( inp( port ) == MPU_CmdAcknowledge )
-            {
-            return( MPU_Ok );
-            }
-
-         port++;
-         }
-      count--;
-      }
-
-   // Failed to reset : MPU-401 not detected
-   return( MPU_NotFound );
+   return( MPU_Ok );
    }
 
 
@@ -321,33 +265,10 @@ int MPU_EnterUART
    )
 
    {
-   int      port = MPU_BaseAddr + 1;
-   unsigned count;
-
-   // Output "Enter UART" command via Command port
-   MPU_SendCommand( MPU_CmdEnterUART );
-
-   // Wait for status port to be ready for read
-   count = 0xffff;
-   while( count > 0 )
-      {
-      if ( !( inp( port ) & MPU_ReadyToRead ) )
-         {
-         port--;
-
-         // Check for a successful reset
-         if ( inp( port ) == MPU_CmdAcknowledge )
-            {
-            return( MPU_Ok );
-            }
-
-         port++;
-         }
-      count--;
-      }
-
-   // Failed to reset : MPU-401 not detected
-   return( MPU_UARTFailed );
+   /* Keep the command sequence identical to the native DOOM backend that
+      is already verified against murm386's MPU-401 implementation. */
+   MPU_SendCommand( 0xd0 );
+   return( MPU_Ok );
    }
 
 
@@ -363,30 +284,15 @@ int MPU_Init
    )
 
    {
-   int status;
-   int count;
-   char *ptr;
-
-   ptr = USER_GetText( "MPUDELAY" );
-   if ( ptr != NULL )
-      {
-      MPU_Delay = ( unsigned )atol( ptr );
-      }
-
    MPU_BaseAddr = addr;
 
-   count = 4;
-   while( count > 0 )
+   if ( !( sound_hw_mask() & SOUND_HW_MPU401 ) )
       {
-      status = MPU_Reset();
-      if ( status == MPU_Ok )
-         {
-         return( MPU_EnterUART() );
-         }
-      count--;
+      return( MPU_NotFound );
       }
 
-   return( status );
+   MPU_Reset();
+   return( MPU_EnterUART() );
    }
 
 

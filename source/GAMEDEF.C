@@ -705,7 +705,7 @@ char parsecommand(void)
             tempbuf[j] = '\0';
 
             fp = kopen4load(tempbuf,loadfromgrouponly);
-            if(fp == 0)
+            if(fp == -1)
             {
                 error++;
                 printf("  * ERROR!(L%ld) Could not find '%s'.\n",line_number,label+(labelcnt<<6));

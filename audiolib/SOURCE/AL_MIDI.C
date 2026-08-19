@@ -39,6 +39,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sndcards.h"
 #include "blaster.h"
 #include "user.h"
+#include "sound_hw.h"
 #include "al_midi.h"
 #include "_al_midi.h"
 #include "ll_man.h"
@@ -1246,34 +1247,12 @@ int AL_DetectFM
    )
 
    {
-   int status1;
-   int status2;
-   int i;
-
    if ( USER_CheckParameter( NO_ADLIB_DETECTION ) )
       {
       return( FALSE );
       }
 
-   AL_SendOutputToPort( ADLIB_PORT, 4, 0x60 );   // Reset T1 & T2
-   AL_SendOutputToPort( ADLIB_PORT, 4, 0x80 );   // Reset IRQ
-
-   status1 = inp( ADLIB_PORT );
-
-   AL_SendOutputToPort( ADLIB_PORT, 2, 0xff );   // Set timer 1
-   AL_SendOutputToPort( ADLIB_PORT, 4, 0x21 );   // Start timer 1
-
-   for( i = 100; i > 0; i-- )
-      {
-      inp( ADLIB_PORT );
-      }
-
-   status2 = inp( ADLIB_PORT );
-
-   AL_SendOutputToPort( ADLIB_PORT, 4, 0x60 );
-   AL_SendOutputToPort( ADLIB_PORT, 4, 0x80 );
-
-   return( ( ( status1 & 0xe0 ) == 0x00 ) && ( ( status2 & 0xe0 ) == 0xc0 ) );
+   return( ( sound_hw_mask() & SOUND_HW_ADLIB ) != 0 );
    }
 
 
