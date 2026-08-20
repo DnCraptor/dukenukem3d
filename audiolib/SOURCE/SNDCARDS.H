@@ -49,6 +49,7 @@ typedef enum
    SoundSource,
    TandySoundSource,
    PC,
+   Covox = 14,
    NumSoundCards
    } soundcardnames;
 

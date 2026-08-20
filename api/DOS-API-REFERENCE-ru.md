@@ -224,13 +224,19 @@ Standalone-приложению всё равно нужен небольшой 
 | 105 | SRAM-resident `memcmp` для нативных приложений |
 | 106 | состояние завершения native DOS |
 | 107 | информация о текущем EZ-процессе |
+| 108 | размер DOS-блока по сегменту данных |
+| 109 | SRAM-resident `memmove` для native app |
+| 110 | размер крупнейшего свободного DOS-блока в байтах |
+| 111..115 | принадлежащий ядру allocator native app: `malloc/calloc/realloc/free/largest` |
+| 116 | прямой native pointer на backing buffer VGA renderer (`gfx_buffer`) и его размер |
 
 Новые сервисы добавляйте только в конец. Программа, которой нужен более новый
 слот, должна объявлять более новый `DOS_API_VERSION`; загрузчик старой прошивки
 отклонит её до начала выполнения.
 
 Слоты 19..100 символически определены в `dos_math_api.h`. Не дублируйте их
-числовые значения в других местах.
+числовые значения в других местах. Текущая версия ABI — `DOS_API_VERSION 19`;
+слот 116 добавляет опциональный прямой доступ к backing buffer VGA renderer.
 
 ---
 
@@ -282,7 +288,43 @@ dos_phys_write16(0xB8000, cell);   /* text VRAM */
 Это не то же самое, что `dos_guest_far_ptr()`: прямой native pointer не
 воспроизводит семантику VGA planes/write mode/устройства.
 
-### 4.3 `conio.h`
+### 4.3 `dos_video.h`: быстрый прямой доступ к видеобуферу
+
+Для native renderer, которым нужен максимально короткий путь записи, API также
+открывает raw backing store VGA renderer:
+
+```c
+uint32_t size;
+uint8_t *vram = dos_video_get_buffer(&size);
+```
+
+Возвращаемый pointer — native-адрес буфера, используемого VGA/HDMI renderer как
+`gfx_buffer`; `size` — его размер в байтах (сейчас 256 КиБ). На этом пути нет
+вызова системной таблицы на каждый пиксель/байт, поэтому обычные native stores,
+`memcpy()` и `memset()` могут работать с полной скоростью нативной памяти.
+
+**Это expert/fast-path interface, а не альтернативная эмуляция x86 VGA
+aperture.** Прямая запись полностью обходит `vga_mem_write()`. Поэтому не
+применяются VGA memory-map selection, chain-4/odd-even addressing, latches,
+write modes, set/reset logic, bit masks и sequencer plane-write masks. Запись
+байта в `vram[n]` означает буквально «записать байт `n` raw backing buffer». В
+общем случае это не эквивалентно:
+
+```c
+dos_phys_write8(0xA0000u + n, value);
+```
+
+Используйте `dos_phys_write*()`, когда программе нужна обычная семантика VGA
+register/aperture. Используйте `dos_video_get_buffer()` только тогда, когда
+приложение сознательно знает организацию backing buffer для активного video
+mode (например, native renderer сразу формирует именно это представление).
+
+Video core может параллельно читать тот же буфер. API не предоставляет
+неявных locking, dirty tracking или frame synchronization; если нужны обновления
+без tearing, приложение должно само организовать соответствующий порядок
+записи. Никогда не выходите за возвращённый размер.
+
+### 4.4 `conio.h`
 
 Нативный ввод-вывод через порты:
 
@@ -446,9 +488,17 @@ int fscanf(...);
 
 Важные моменты:
 
-- `malloc/calloc/realloc/free` реализованы native DOS runtime;
+- публичные `malloc/calloc/realloc/free` остаются частью userspace libc API, но
+  само выделение памяти с API v17 выполняет ядро через слоты 111..115;
+- allocator сначала использует приватный PSRAM-интервал текущего native EXEC,
+  затем DOS conventional memory; его состояние принадлежит процессу и корректно
+  сохраняется/восстанавливается при nested EXEC;
+- `malloc_largest_block()` возвращает максимум из крупнейшего свободного блока
+  process-local PSRAM heap и крупнейшего доступного DOS-блока;
+- `dos_malloc_set_policy()` выбирает поведение userspace-обёртки при OOM:
+  вернуть `NULL`, выполнить `exit(1)` либо сначала вывести сообщение и выйти;
 - `exit()` — операция native process/CRT, а не завершение процесса Pico SDK;
-- `memcpy/memset/memcmp` используют явные firmware/SRAM-сервисы, а не произвольные реализации flash libc;
+- `memcpy/memset/memcmp/memmove` используют явные firmware/SRAM-сервисы, а не произвольные реализации flash libc;
 - сгенерированные компилятором `__aeabi_*` и математические операции предоставляются `dos-api-math.c` / `dos-api-divmod.S`.
 
 При добавлении отсутствующей стандартной функции сначала определите, к какой
@@ -557,7 +607,12 @@ void TSM_PauseService(int id);
 void TSM_ResumeService(int id);
 void TSM_Remove(void);
 void TSM_Yield(void);
+uint32_t TSM_YieldTime(void);
 ```
+
+`TSM_Yield()` обслуживает таймеры и отбрасывает возвращённое время;
+`TSM_YieldTime()` выполняет тот же service point и возвращает текущее время
+эмулятора в микросекундах.
 
 Callbacks выполняются в обычном контексте приложения в service points. Это не
 асинхронные timer IRQ callbacks RP2xxx.
@@ -1293,7 +1348,8 @@ ELF». В перспективе код, реально зависящий от 
 ### Память
 
 - [ ] различать native pointers и гостевые физические адреса;
-- [ ] использовать `dos_phys_*` для VGA/device memory;
+- [ ] использовать `dos_phys_*`, когда нужна семантика VGA/device registers;
+- [ ] использовать `dos_video_get_buffer()` только в коде, который намеренно знает layout raw renderer buffer;
 - [ ] использовать `dos_alloc_low()` для conventional memory, видимой real-mode/DMA;
 - [ ] проверять правила 64-КиБ границы ISA DMA там, где они применимы;
 - [ ] запрашивать достаточные размеры native и DOS stack;
@@ -1564,6 +1620,7 @@ apps/api/dos-api-divmod.S       exact EABI divmod trampolines
 apps/api/dos_math_api.h         math system-table slot map
 
 apps/api/dos_phys.h             guest physical memory
+apps/api/dos_video.h            прямой доступ к raw VGA backing buffer
 apps/api/dos_mem.h              conventional DOS memory
 apps/api/dos_yield.h            cooperative service point
 apps/api/dos_process.h          process exit/termination state

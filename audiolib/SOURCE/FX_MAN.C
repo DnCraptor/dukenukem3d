@@ -37,6 +37,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sndscape.h"
 #include "guswave.h"
 #include "sndsrc.h"
+#include "COVOX.H"
 #include "ll_man.h"
 #include "user.h"
 #include "fx_man.h"
@@ -119,6 +120,9 @@ char *FX_ErrorString
             case SoundSource :
             case TandySoundSource :
                ErrorString = SS_ErrorString( SS_Error );
+               break;
+            case Covox :
+               ErrorString = CVX_ErrorString( CVX_Error );
                break;
             }
          break;
@@ -243,6 +247,20 @@ int FX_SetupCard
             break;
             }
          SS_Shutdown();
+         device->MaxVoices     = 32;
+         device->MaxSampleBits = 8;
+         device->MaxChannels   = 1;
+         break;
+
+      case Covox :
+         DeviceStatus = CVX_Init();
+         if ( DeviceStatus != CVX_Ok )
+            {
+            FX_SetErrorCode( FX_SoundCardError );
+            status = FX_Error;
+            break;
+            }
+         CVX_Shutdown();
          device->MaxVoices     = 32;
          device->MaxSampleBits = 8;
          device->MaxChannels   = 1;
@@ -389,6 +407,7 @@ int FX_Init
       case SoundScape :
       case SoundSource :
       case TandySoundSource :
+      case Covox :
       case UltraSound :
          devicestatus = MV_Init( SoundCard, FX_MixRate, numvoices,
             numchannels, samplebits );
@@ -446,6 +465,7 @@ int FX_Shutdown
       case SoundScape :
       case SoundSource :
       case TandySoundSource :
+      case Covox :
       case UltraSound :
          status = MV_Shutdown();
          if ( status != MV_Ok )
@@ -492,6 +512,7 @@ int FX_SetCallBack
       case SoundScape :
       case SoundSource :
       case TandySoundSource :
+      case Covox :
       case UltraSound :
          MV_SetCallBack( function );
          break;
@@ -557,6 +578,7 @@ void FX_SetVolume
 
       case SoundSource :
       case TandySoundSource :
+      case Covox :
          MV_SetVolume( volume );
          break;
       }
@@ -616,6 +638,7 @@ int FX_GetVolume
 
       case SoundSource :
       case TandySoundSource :
+      case Covox :
          volume = MV_GetVolume();
          break;
 

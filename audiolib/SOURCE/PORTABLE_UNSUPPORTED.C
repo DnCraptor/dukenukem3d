@@ -105,25 +105,6 @@ int SOUNDSCAPE_Init(void)
 }
 void SOUNDSCAPE_Shutdown(void) { }
 
-/* TODO: Disney/Tandy Sound Source backend. */
-char *SS_ErrorString(int e) { (void)e; return "Sound Source is not supported yet."; }
-void SS_StopPlayback(void) { }
-int SS_GetCurrentPos(void) { return 0; }
-int SS_BeginBufferedPlayback(char *buffer, int size, int divisions,
-    void (*callback)(void))
-{
-    (void)buffer; (void)size; (void)divisions; (void)callback;
-    return SS_Error;
-}
-int SS_GetPlaybackRate(void) { return 0; }
-int SS_SetMixMode(int mode) { (void)mode; return SS_Error; }
-int SS_SetPort(int port) { (void)port; return SS_Error; }
-void SS_SetCallBack(void (*func)(void)) { (void)func; }
-int SS_Init(int soundcard) { (void)soundcard; return SS_NotFound; }
-void SS_Shutdown(void) { }
-void SS_UnlockMemory(void) { }
-int SS_LockMemory(void) { return SS_Error; }
-
 /* TODO: Gravis UltraSound digital-wave backend. */
 char *GUSWAVE_ErrorString(int e) { (void)e; return "GUS digital audio is not supported yet."; }
 int GUSWAVE_VoicePlaying(int handle) { (void)handle; return 0; }

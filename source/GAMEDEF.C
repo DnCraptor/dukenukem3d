@@ -1428,29 +1428,35 @@ void copydefaultcons(void)
     for(i=0;i<3;i++)
     {
         fpi = kopen4load( defaultcons[i] , 1 );
-        fpo = fopen( defaultcons[i],"wb");
-
-        if(fpi == 0)
+        if(fpi == -1)
         {
-// CTW - MODIFICATION
-//          if(fpo == -1) fclose(fpo);
-            if(fpo == NULL) fclose(fpo);
-// CTW END - MODIFICATION
+            printf("  * ERROR! Could not find internal '%s'.\n", defaultcons[i]);
             continue;
         }
-// CTW - MODIFICATION
-//      if(fpo == -1)
+
+        fpo = fopen( defaultcons[i],"wb");
         if(fpo == NULL)
-// CTW END - MODIFICATION
         {
-            if(fpi == 0) kclose(fpi);
+            kclose(fpi);
             continue;
         }
 
         fs = kfilelength(fpi);
 
-        kread(fpi,&hittype[0],fs);
-        fwrite(&hittype[0],fs,1,fpo);
+        while(fs > 0)
+        {
+            long chunk = min(fs,(long)sizeof(tempbuf));
+            long got = kread(fpi,tempbuf,chunk);
+
+            if(got <= 0 || fwrite(tempbuf,1,got,fpo) != (size_t)got)
+            {
+                printf("  * ERROR! Failed while copying internal '%s'.\n",
+                       defaultcons[i]);
+                break;
+            }
+
+            fs -= got;
+        }
 
         kclose(fpi);
         fclose(fpo);
@@ -1479,7 +1485,7 @@ void loadefs(char *filenam,char *mptr)
     }
 
     fp = kopen4load(filenam,loadfromgrouponly);
-    if( fp == 0 )
+    if( fp == -1 )
     {
         if( loadfromgrouponly == 1 )
             gameexit("\nMissing con file(s).");

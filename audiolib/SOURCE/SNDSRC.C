@@ -44,6 +44,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sndcards.h"
 #include "user.h"
 #include "sndsrc.h"
+#include "sound_hw.h"
+#include <tsm.h>
 
 #define TRUE  ( 1 == 1 )
 #define FALSE ( !TRUE )
@@ -413,7 +415,7 @@ int SS_TestSoundSource
 
    while( ticks < 4 )
       {
-      // Do nothing for a while
+      TSM_Yield();
       }
 
    TS_Terminate( timer );
@@ -451,39 +453,12 @@ int SS_DetectSoundSource
    )
 
    {
-   if ( USER_CheckParameter( SELECT_SOUNDSOURCE_PORT1 ) )
+   /* murm386 exposes the Disney Sound Source on LPT1.  Native EZ code can
+      query the actually enabled hardware directly; do not run the original
+      timing-sensitive printer-port probe through the cooperative scheduler. */
+   if ( sound_hw_mask() & SOUND_HW_DSS )
       {
       SS_Port = SS_Port1;
-      return( TRUE );
-      }
-
-   if ( USER_CheckParameter( SELECT_SOUNDSOURCE_PORT2 ) )
-      {
-      SS_Port = SS_Port2;
-      return( TRUE );
-      }
-
-   if ( USER_CheckParameter( SELECT_SOUNDSOURCE_PORT3 ) )
-      {
-      SS_Port = SS_Port3;
-      return( TRUE );
-      }
-
-   if ( SS_TestSoundSource( SS_Port1 ) )
-      {
-      SS_Port = SS_Port1;
-      return( TRUE );
-      }
-
-   if ( SS_TestSoundSource( SS_Port2 ) )
-      {
-      SS_Port = SS_Port2;
-      return( TRUE );
-      }
-
-   if ( SS_TestSoundSource( SS_Port3 ) )
-      {
-      SS_Port = SS_Port3;
       return( TRUE );
       }
 
@@ -514,14 +489,12 @@ int SS_Init
    if ( ( soundcard == TandySoundSource ) ||
       ( USER_CheckParameter( SELECT_TANDY_SOUNDSOURCE ) ) )
       {
-      // Tandy
-      SS_OffCommand = 0x0e;
+      /* murm386 Tandy is SN76489, not a parallel-port Tandy Sound Source. */
+      SS_SetErrorCode( SS_NotFound );
+      return( SS_Warning );
       }
-   else
-      {
-      // Disney
-      SS_OffCommand = 0x0c;
-      }
+
+   SS_OffCommand = 0x0c;
 
    status = SS_DetectSoundSource();
    if ( !status )

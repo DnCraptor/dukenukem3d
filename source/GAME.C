@@ -7166,6 +7166,25 @@ void compilecons(void)
        printf("  * Writing defaults to current directory.\n");
        loadefs(confilename,mymembuf);
    }
+
+   /* USER.CON must define these basic runtime tables.  A truncated external
+      copy otherwise masks the valid copy in DUKE3D.GRP on every later run. */
+   if( strcmp(confilename,"GAME.CON") == 0 &&
+       (max_player_health <= 0 ||
+        volume_names[0][0] == '\0' ||
+        skill_names[0][0] == '\0') )
+   {
+       puts("  * External CON data incomplete; retrying internal defaults.");
+       loadfromgrouponly = 1;
+       loadefs(confilename,mymembuf);
+   }
+
+   if( max_player_health <= 0 ||
+       volume_names[0][0] == '\0' ||
+       skill_names[0][0] == '\0' )
+   {
+       gameexit("\nInvalid CON data: USER.CON definitions were not loaded.");
+   }
 }
 
 

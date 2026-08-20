@@ -78,6 +78,8 @@ set(DUKE_BUILD_SOURCES
     audiolib/SOURCE/MUSIC.C
     audiolib/SOURCE/GMTIMBRE.C
     audiolib/SOURCE/PORTABLE_DPMI.C
+    audiolib/SOURCE/SNDSRC.C
+    audiolib/SOURCE/COVOX.C
     audiolib/SOURCE/PORTABLE_UNSUPPORTED.C
     audiolib/SOURCE/PORTABLE_INTERRUPT.C
     audiolib/SOURCE/PORTABLE_BLASTER_MUSIC.C
@@ -192,6 +194,6 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         ${COMPILED_DIR}/${BUILD_NAME}.com
     COMMAND ${ELF2EZ_TOOL}
         /y ${COMPILED_DIR}/${BUILD_NAME}.com
-#    COMMAND ${CMAKE_COMMAND} -E rm -f
-#        ${COMPILED_DIR}/${BUILD_NAME}.com
+    COMMAND ${CMAKE_COMMAND} -E rm -f
+        ${COMPILED_DIR}/${BUILD_NAME}.com
 )

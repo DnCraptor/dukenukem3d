@@ -160,6 +160,7 @@ void CONFIG_GetSetupFilename( void )
             oldtime = clock()+CLOCKS_PER_SEC;
             count--;
             }
+         (void)dos_yield();
          if (KB_KeyWaiting())
             {
             int32 ch = KB_Getch();

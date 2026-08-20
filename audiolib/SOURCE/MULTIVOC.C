@@ -45,6 +45,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "blaster.h"
 #include "sndscape.h"
 #include "sndsrc.h"
+#include "COVOX.H"
 #include "pas16.h"
 #include "guswave.h"
 #include "pitch.h"
@@ -1839,6 +1840,9 @@ int MV_SetMixMode
       case TandySoundSource :
          MV_MixMode = SS_SetMixMode( mode );
          break;
+      case Covox :
+         MV_MixMode = CVX_SetMixMode( mode );
+         break;
       #endif
       }
 
@@ -2002,6 +2006,18 @@ int MV_StartPlayback
          MV_MixRate = SS_SampleRate;
          MV_DMAChannel = -1;
          break;
+      case Covox :
+         status = CVX_BeginBufferedPlayback( MV_MixBuffer[ 0 ],
+            TotalBufferSize, MV_NumberOfBuffers,
+            MV_ServiceVoc );
+         if ( status != CVX_Ok )
+            {
+            MV_SetErrorCode( MV_SoundSourceError );
+            return( MV_Error );
+            }
+         MV_MixRate = CVX_GetPlaybackRate();
+         MV_DMAChannel = -1;
+         break;
       #endif
       }
 
@@ -2050,6 +2066,9 @@ void MV_StopPlayback
       case SoundSource :
       case TandySoundSource :
          SS_StopPlayback();
+         break;
+      case Covox :
+         CVX_StopPlayback();
          break;
       #endif
       }
@@ -2996,6 +3015,10 @@ int MV_TestPlayback
             MV_SetErrorCode( MV_SoundSourceFailure );
             pos = -1;
             break;
+         case Covox :
+            MV_SetErrorCode( MV_SoundSourceFailure );
+            pos = CVX_GetCurrentPos();
+            break;
          #endif
 
          default :
@@ -3164,6 +3187,13 @@ int MV_Init
             MV_SetErrorCode( MV_SoundSourceError );
             }
          break;
+      case Covox :
+         status = CVX_Init();
+         if ( status != CVX_Ok )
+            {
+            MV_SetErrorCode( MV_SoundSourceError );
+            }
+         break;
       #endif
 
       default :
@@ -3304,6 +3334,9 @@ int MV_Shutdown
       case SoundSource :
       case TandySoundSource :
          SS_Shutdown();
+         break;
+      case Covox :
+         CVX_Shutdown();
          break;
       #endif
       }
