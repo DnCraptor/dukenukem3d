@@ -1491,6 +1491,11 @@ void enterlevel(char g)
 
      resettimevars();  // Here we go
 
+     /* Native IRQ1 state can retain a make-code across the loading
+      * transition.  Clear it only after loading/synchronization are
+      * complete, immediately before returning to the game loop. */
+     KB_ClearKeysDown();
+     KB_FlushKeyboardQueue();
 
 }
 
