@@ -96,12 +96,17 @@ long divscale28(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 28))
 long divscale30(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 30)) / b); }
 long divscale32(long a,long b) { return (long)(((int64_t)a * ((int64_t)1 << 32)) / b); }
 
-long klabs(long a) { return a < 0 ? -a : a; }
+long klabs(long a)
+{
+    uint32_t u = (uint32_t)a;
+    if (u & 0x80000000u) u = 0u - u;
+    return (long)(int32_t)u;
+}
 long ksgn(long a) { return (a > 0) - (a < 0); }
 long sgn(long a) { return (a > 0) - (a < 0); }
 long min(long a,long b) { return a < b ? a : b; }
 long max(long a,long b) { return a > b ? a : b; }
-long mul5(long a) { return a * 5; }
+long mul5(long a) { return (long)(int32_t)((uint32_t)a * 5u); }
 
 void clearbuf(long dst, long count, long value)
 {
@@ -112,8 +117,59 @@ void clearbuf(long dst, long count, long value)
 void clearbufbyte(long dst, long count, long value)
 {
     uint8_t *p = (uint8_t *)(uintptr_t)(uint32_t)dst;
-    uint8_t v = (uint8_t)value;
-    while (count-- > 0) *p++ = v;
+    uint32_t v = (uint32_t)value;
+
+    /* Match the Watcom STOSB/STOSW/STOSD routine exactly.  The third
+     * argument is a 32-bit fill pattern, not a memset-style byte value. */
+    if (count <= 0) return;
+
+    if (count < 4)
+    {
+        if (count & 1)
+        {
+            *p++ = (uint8_t)v;
+            --count;
+        }
+        while (count >= 2)
+        {
+            p[0] = (uint8_t)v;
+            p[1] = (uint8_t)(v >> 8);
+            p += 2;
+            count -= 2;
+        }
+        return;
+    }
+
+    if ((uintptr_t)p & 1u)
+    {
+        *p++ = (uint8_t)v;
+        --count;
+    }
+    if ((uintptr_t)p & 2u)
+    {
+        p[0] = (uint8_t)v;
+        p[1] = (uint8_t)(v >> 8);
+        p += 2;
+        count -= 2;
+    }
+
+    while (count >= 4)
+    {
+        p[0] = (uint8_t)v;
+        p[1] = (uint8_t)(v >> 8);
+        p[2] = (uint8_t)(v >> 16);
+        p[3] = (uint8_t)(v >> 24);
+        p += 4;
+        count -= 4;
+    }
+    if (count & 2)
+    {
+        p[0] = (uint8_t)v;
+        p[1] = (uint8_t)(v >> 8);
+        p += 2;
+    }
+    if (count & 1)
+        *p = (uint8_t)v;
 }
 
 void copybuf(long src, long dst, long count)
@@ -137,18 +193,35 @@ void copybufreverse(long src, long dst, long count)
     while (count-- > 0) *d++ = *s--;
 }
 
+static int32_t asr16_32(uint32_t v)
+{
+    uint32_t hi = v >> 16;
+    if (v & 0x80000000u) hi |= 0xffff0000u;
+    return (int32_t)hi;
+}
+
 void qinterpolatedown16(long dst, long count, long value, long add)
 {
     int32_t *d = (int32_t *)(uintptr_t)(uint32_t)dst;
-    int32_t v = (int32_t)value;
-    while (count-- > 0) { *d++ = v >> 16; v += (int32_t)add; }
+    uint32_t v = (uint32_t)value;
+    uint32_t inc = (uint32_t)add;
+    while (count-- > 0)
+    {
+        *d++ = asr16_32(v);
+        v += inc;
+    }
 }
 
 void qinterpolatedown16short(long dst, long count, long value, long add)
 {
     int16_t *d = (int16_t *)(uintptr_t)(uint32_t)dst;
-    int32_t v = (int32_t)value;
-    while (count-- > 0) { *d++ = (int16_t)(v >> 16); v += (int32_t)add; }
+    uint32_t v = (uint32_t)value;
+    uint32_t inc = (uint32_t)add;
+    while (count-- > 0)
+    {
+        *d++ = (int16_t)asr16_32(v);
+        v += inc;
+    }
 }
 
 void swapchar(long a,long b)

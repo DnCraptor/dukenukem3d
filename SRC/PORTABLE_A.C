@@ -90,9 +90,9 @@ long prevlineasm1(long vinc, long pal, long cnt, long vplc, long buf, long dest)
     if (cnt != 0)
         return vlineasm1(vinc,pal,cnt,vplc,buf,dest);
 
-    vplc = (long)((uint32_t)vplc + (uint32_t)vinc);
+    /* A.ASM samples with the old VPLC, then returns VPLC+VINC. */
     ptr8(dest)[0] = ptr8(pal)[ptr8(buf)[((uint32_t)vplc) >> a_vline_shift]];
-    return vplc;
+    return (long)(int32_t)((uint32_t)vplc + (uint32_t)vinc);
 }
 
 long mvlineasm1(long vinc, long pal, long cnt, long vplc, long buf, long dest)

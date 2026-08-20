@@ -622,14 +622,22 @@ void pan3dsound(void)
 void TestCallBack(unsigned long num)
 {
     short tempi,tempj,tempk;
+    int32 callbacknum = (int32)(uint32)num;
 
-        if(num < 0)
+        /* AudioLib stores callback values as unsigned long, but Duke
+         * deliberately uses negative IDs for RTS lumps. */
+        if(callbacknum < 0)
         {
-            if(lumplockbyte[-num] >= 200)
-                lumplockbyte[-num]--;
+            int32 lump = -callbacknum;
+            if(lump >= 0 && lump < 11 && lumplockbyte[lump] >= 200)
+                lumplockbyte[lump]--;
             return;
         }
 
+        if(callbacknum >= NUM_SOUNDS)
+            return;
+
+        num = (unsigned long)callbacknum;
         tempk = Sound[num].num;
 
         if(tempk > 0)

@@ -5476,16 +5476,37 @@ clipmove (long *x, long *y, long *z, short *sectnum,
 keepaway (long *x, long *y, long w)
 {
 	long dx, dy, ox, oy, x1, y1;
+	long long side, stepx, stepy;
 	char first;
 
 	x1 = clipit[w].x1; dx = clipit[w].x2-x1;
 	y1 = clipit[w].y1; dy = clipit[w].y2-y1;
 	ox = ksgn(-dy); oy = ksgn(dx);
 	first = (klabs(dx) <= klabs(dy));
-	while (1)
+
+	/* In exact arithmetic this side value strictly increases on every
+	 * keepaway step.  Compute it in 64 bits so 32-bit signed overflow
+	 * cannot turn this otherwise-progressing loop into a hard lock. */
+	side = (long long)dx * ((long long)*y - y1)
+	     - ((long long)*x - x1) * (long long)dy;
+	if (side > 0) return;
+
+	stepx = (dy < 0) ? -(long long)dy : (long long)dy;
+	stepy = (dx < 0) ? -(long long)dx : (long long)dx;
+	if (stepx == 0 && stepy == 0) return;
+
+	while (side <= 0)
 	{
-		if (dx*(*y-y1) > (*x-x1)*dy) return;
-		if (first == 0) *x += ox; else *y += oy;
+		if (first == 0)
+		{
+			*x += ox;
+			side += stepx;
+		}
+		else
+		{
+			*y += oy;
+			side += stepy;
+		}
 		first ^= 1;
 	}
 }
