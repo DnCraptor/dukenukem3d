@@ -351,7 +351,6 @@ void CONTROL_Startup(controltype which, int32 (*TimeFunction)(void), int32 ticsp
     control_type = which;
     control_timefunc = TimeFunction;
     control_ticspersecond = ticspersecond;
-    CONTROL_ClearAssignments();
 
     CONTROL_MousePresent = MOUSE_Init();
     CONTROL_MouseEnabled = CONTROL_MousePresent && (which == controltype_keyboardandmouse);

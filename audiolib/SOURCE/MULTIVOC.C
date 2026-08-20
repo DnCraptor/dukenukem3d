@@ -54,6 +54,30 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "debugio.h"
 #include "tsm.h"
 
+/*---------------------------------------------------------------------
+   Alignment-safe little-endian readers.
+
+   On this target the audio library is compiled to native ARMv6-M
+   (Cortex-M0+) code, which has no support for unaligned loads: a word or
+   halfword LDR from an unaligned address raises a HardFault and locks the
+   application.  VOC block headers are byte-packed and land on arbitrary
+   alignments, so every multi-byte field must be assembled from byte reads
+   rather than dereferenced through an (unsigned short/long *) cast.
+---------------------------------------------------------------------*/
+
+static unsigned MV_GetUnalignedU16( const unsigned char *p )
+   {
+   return ( unsigned )p[ 0 ] | ( ( unsigned )p[ 1 ] << 8 );
+   }
+
+static unsigned long MV_GetUnalignedU32( const unsigned char *p )
+   {
+   return ( unsigned long )p[ 0 ]         |
+          ( ( unsigned long )p[ 1 ] << 8  ) |
+          ( ( unsigned long )p[ 2 ] << 16 ) |
+          ( ( unsigned long )p[ 3 ] << 24 );
+   }
+
 #define RoundFixed( fixedval, bits )            \
         (                                       \
           (                                     \
@@ -644,7 +668,7 @@ playbackstatus MV_GetNextVOCBlock
          }
 
       blocktype = ( int )*ptr;
-      blocklength = ( *( unsigned long * )( ptr + 1 ) ) & 0x00ffffff;
+      blocklength = MV_GetUnalignedU32( ptr + 1 ) & 0x00ffffff;
       ptr += 4;
 
       switch( blocktype )
@@ -723,7 +747,7 @@ playbackstatus MV_GetNextVOCBlock
             // Repeat begin
             if ( voice->LoopEnd == NULL )
                {
-               voice->LoopCount = *( unsigned short * )ptr;
+               voice->LoopCount = MV_GetUnalignedU16( ptr );
                voice->LoopStart = ptr + blocklength;
                }
             ptr += blocklength;
@@ -756,7 +780,7 @@ playbackstatus MV_GetNextVOCBlock
          case 8 :
             // Extended block
             voice->bits  = 8;
-            tc = *( unsigned short * )ptr;
+            tc = MV_GetUnalignedU16( ptr );
             packtype = *( ptr + 2 );
             voicemode = *( ptr + 3 );
             ptr += blocklength;
@@ -764,10 +788,10 @@ playbackstatus MV_GetNextVOCBlock
 
          case 9 :
             // New sound data block
-            samplespeed = *( unsigned long * )ptr;
+            samplespeed = MV_GetUnalignedU32( ptr );
             BitsPerSample = ( unsigned )*( ptr + 4 );
             Channels = ( unsigned )*( ptr + 5 );
-            Format = ( unsigned )*( unsigned short * )( ptr + 6 );
+            Format = MV_GetUnalignedU16( ptr + 6 );
 
             if ( ( BitsPerSample == 8 ) && ( Channels == 1 ) &&
                ( Format == VOC_8BIT ) )
@@ -2697,7 +2721,7 @@ int MV_PlayLoopedVOC
    voice->wavetype    = VOC;
    voice->bits        = 8;
    voice->GetSound    = MV_GetNextVOCBlock;
-   voice->NextBlock   = ptr + *( unsigned short int * )( ptr + 0x14 );
+   voice->NextBlock   = ptr + MV_GetUnalignedU16( ( const unsigned char * )ptr + 0x14 );
    voice->DemandFeed  = NULL;
    voice->LoopStart   = NULL;
    voice->LoopCount   = 0;

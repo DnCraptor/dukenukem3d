@@ -42,6 +42,7 @@ Prepared for public release: 03/21/2003 - Charlie Wiederhold, 3D Realms
 #include "dos_mem.h"
 #include "dos_diag.h"
 #include "dos_guest_ptr.h"
+#include "tsm.h"
 
 #if DIAG
 #define DUKE_DIAG(code) dos_diag_set((uint32_t)(code))
@@ -7699,6 +7700,11 @@ void main(int argc,char **argv)
 
     while ( !(ps[myconnectindex].gm&MODE_END) ) //The whole loop!!!!!!!!!!!!!!!!!!
     {
+        /* Native TASKMAN is cooperative.  moveloop()/getpackets() normally
+         * provide the service point, but moveloop() is skipped while Help or
+         * a menu is active.  Keep keyboard IRQs and timer tasks alive there. */
+        TSM_Yield();
+
         if( ud.recstat == 2 || ud.multimode > 1 || ( ud.show_help == 0 && (ps[myconnectindex].gm&MODE_MENU) != MODE_MENU ) )
             if( ps[myconnectindex].gm&MODE_GAME )
                 if( moveloop() ) continue;
