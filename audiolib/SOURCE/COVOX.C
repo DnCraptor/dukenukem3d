@@ -20,7 +20,7 @@
  * burst writes.  A full-rate native Covox needs host-side sample queuing.
  */
 // TODO: read it from DUKE3D.CFG
-#define CVX_SAMPLE_RATE 1000
+#define CVX_SAMPLE_RATE 16000
 #define MONO_8BIT       0
 
 static char *cvx_buffer_start;

@@ -342,11 +342,11 @@ static void MV_Mix
 
       voice->mix( position, rate, start, voclength );
 
-      if ( voclength & 1 )
-         {
-         MV_MixPosition += rate;
-         voclength -= 1;
-         }
+      // NOTE: the mixers consume the full 'voclength' samples (see
+      // PORTABLE_MIX.C).  They must not round the count down to an even
+      // value: a looped voice whose block yields an odd voclength of 1
+      // would then advance the output by zero samples, so 'length' below
+      // never reaches 0 and this loop spins forever (hang on core 0).
       voice->position = MV_MixPosition;
 
       length -= voclength;

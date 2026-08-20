@@ -5476,7 +5476,7 @@ clipmove (long *x, long *y, long *z, short *sectnum,
 keepaway (long *x, long *y, long w)
 {
 	long dx, dy, ox, oy, x1, y1;
-	long long side, stepx, stepy;
+	long long side, stepx, stepy, pair, pairs;
 	char first;
 
 	x1 = clipit[w].x1; dx = clipit[w].x2-x1;
@@ -5493,8 +5493,24 @@ keepaway (long *x, long *y, long w)
 
 	stepx = (dy < 0) ? -(long long)dy : (long long)dy;
 	stepy = (dx < 0) ? -(long long)dx : (long long)dx;
-	if (stepx == 0 && stepy == 0) return;
+	pair = stepx + stepy;
+	if (pair == 0) return;
 
+	/*
+	 * The original loop alternates one x step and one y step.  A complete
+	 * pair always increases 'side' by abs(dx)+abs(dy), regardless of which
+	 * coordinate is first.  Skip all complete pairs arithmetically instead
+	 * of potentially executing millions/billions of one-pixel iterations.
+	 */
+	pairs = (-side) / pair;
+	if (pairs > 0)
+	{
+		*x += (long)((long long)ox * pairs);
+		*y += (long)((long long)oy * pairs);
+		side += pair * pairs;
+	}
+
+	/* At this point at most two original keepaway steps remain. */
 	while (side <= 0)
 	{
 		if (first == 0)

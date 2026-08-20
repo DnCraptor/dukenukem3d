@@ -63,7 +63,6 @@ static void mix_u8_to_u8(unsigned long position, unsigned long rate,
     const uint8_t *src = (const uint8_t *)start;
     unsigned long i;
 
-    count &= ~1UL;
 
     for (i = 0; i < count; ++i)
     {
@@ -97,7 +96,6 @@ static void mix_u8_to_s16(unsigned long position, unsigned long rate,
     const uint8_t *src = (const uint8_t *)start;
     unsigned long i;
 
-    count &= ~1UL;
 
     for (i = 0; i < count; ++i)
     {
@@ -130,7 +128,6 @@ static void mix_s16_to_s16(unsigned long position, unsigned long rate,
     const uint8_t *src = (const uint8_t *)start;
     unsigned long i;
 
-    count &= ~1UL;
 
     for (i = 0; i < count; ++i)
     {
