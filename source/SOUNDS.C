@@ -481,6 +481,8 @@ void sound(short num)
        else Sound[num].lock++;
     }
 
+    if (FXDevice == 13) return; /* DIAGNOSTIC: loadsound ran; skip FX_Play* to isolate it */
+
     if( soundm[num]&1 )
     {
         if(*Sound[num].ptr == 'C')

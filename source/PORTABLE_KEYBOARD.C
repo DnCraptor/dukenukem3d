@@ -9,12 +9,25 @@
 #define KB_QUEUE_SIZE 64
 #define KB_QUEUE_MASK (KB_QUEUE_SIZE - 1)
 
+/*
+ * Match the working native DOOM keyboard architecture: IRQ1 only captures
+ * raw Set-1 bytes; interpretation happens synchronously in application
+ * context.  Head/tail are monotonic like DOOM's keyboardque.
+ */
+#define KB_RAW_QUEUE_SIZE 32
+#define KB_RAW_QUEUE_MASK (KB_RAW_QUEUE_SIZE - 1)
+
 volatile byte KB_KeyDown[MAXKEYBOARDSCAN];
 volatile kb_scancode KB_LastScan = sc_None;
 
 static unsigned char kb_queue[KB_QUEUE_SIZE];
 static volatile unsigned int kb_head;
 static volatile unsigned int kb_tail;
+
+static unsigned char kb_raw_queue[KB_RAW_QUEUE_SIZE];
+static volatile unsigned int kb_raw_head;
+static volatile unsigned int kb_raw_tail;
+
 static int kb_e0;
 static int kb_e1_left;
 static boolean kb_keypad_active = true;
@@ -184,13 +197,31 @@ static void kb_process_raw(unsigned int raw)
 static bool kb_native_irq(void *cpu)
 {
     (void)cpu;
-    kb_process_raw(inp(0x60));
+
+    /*
+     * Keep the native IRQ boundary minimal, exactly like working DOOM:
+     * capture one raw byte, acknowledge PIC, and return.  Do not mutate
+     * KB_KeyDown[] or parser state while the guest IRQ callback is active.
+     */
+    kb_raw_queue[kb_raw_head & KB_RAW_QUEUE_MASK] = (unsigned char)inp(0x60);
+    ++kb_raw_head;
     outp(0x20, 0x20);
     return true;
 }
 
+void KB_ServiceEvents(void)
+{
+    while (kb_raw_tail != kb_raw_head)
+    {
+        unsigned int raw = kb_raw_queue[kb_raw_tail & KB_RAW_QUEUE_MASK];
+        ++kb_raw_tail;
+        kb_process_raw(raw);
+    }
+}
+
 boolean KB_KeyWaiting(void)
 {
+    KB_ServiceEvents();
     return kb_head != kb_tail;
 }
 
@@ -272,6 +303,7 @@ void KB_Startup(void)
     if (kb_vector.installed)
         return;
     kb_head = kb_tail = 0;
+    kb_raw_head = kb_raw_tail = 0;
     kb_e0 = 0;
     kb_e1_left = 0;
     KB_ClearKeysDown();
@@ -282,6 +314,7 @@ void KB_Startup(void)
 void KB_Shutdown(void)
 {
     dos_native_restorevect(&kb_vector);
+    kb_raw_head = kb_raw_tail = 0;
     KB_ClearKeysDown();
     KB_FlushKeyboardQueue();
 }

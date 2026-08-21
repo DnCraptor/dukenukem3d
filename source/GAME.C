@@ -7609,13 +7609,12 @@ void main(int argc,char **argv)
 
         puts("Loading palette/lookups.");
 
-// CTW - MODIFICATION
-/*  if( setgamemode(ScreenMode,ScreenWidth,ScreenHeight) < 0 )
+    if( setgamemode(ScreenMode,ScreenWidth,ScreenHeight) < 0 )
     {
         printf("\nVESA driver for ( %i * %i ) not found/supported!\n",xdim,ydim);
         vidoption = 2;
         setgamemode(vidoption,320,200);
-    }*/
+    }
     DUKE_DIAG(0xD3000020u);
     if( setgamemode(ScreenMode,ScreenWidth,ScreenHeight) < 0 )
     {
@@ -7625,7 +7624,6 @@ void main(int argc,char **argv)
         ScreenHeight = 200;
         setgamemode(ScreenMode,ScreenWidth,ScreenHeight);
     }
-// CTW END - MODIFICATION
     DUKE_DIAG(0xD3000023u);
 
     genspriteremaps();

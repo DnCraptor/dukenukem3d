@@ -25,6 +25,9 @@ Prepared for public release: 03/21/2003 - Charlie Wiederhold, 3D Realms
 //-------------------------------------------------------------------------
 
 #include "duke3d.h"
+#ifdef ELF_MODE
+#include "tsm.h"
+#endif
 
 extern char everyothertime;
 short which_palookup = 9;
@@ -975,7 +978,14 @@ void newgame(char vn,char ln,char sk)
     short i;
 
     if(globalskillsound >= 0)
+    {
+#ifdef ELF_MODE
+        while(Sound[globalskillsound].lock>=200)
+            TSM_Yield();
+#else
         while(Sound[globalskillsound].lock>=200);
+#endif
+    }
     globalskillsound = -1;
 
     waitforeverybody();

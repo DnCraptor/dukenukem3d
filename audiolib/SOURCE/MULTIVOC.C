@@ -78,6 +78,110 @@ static unsigned long MV_GetUnalignedU32( const unsigned char *p )
           ( ( unsigned long )p[ 3 ] << 24 );
    }
 
+/*---------------------------------------------------------------------
+   Null (silent) FX device.
+
+   Diagnostic backend that exercises the entire MultiVoc allocation, mix
+   and service path but performs NO hardware port/DMA access whatsoever.
+   Detection always succeeds.  Use it to bisect a hang: if FXDevice=Null
+   still hangs, the fault is in the shared mixer/service/memory layer; if
+   it does not, the fault is in a device-specific port/DMA backend (or the
+   emulator's handling of those accesses).
+---------------------------------------------------------------------*/
+static char        *MV_NullBuffer    = NULL;
+static int          MV_NullTransfer  = 0;
+static int          MV_NullCurrent   = 0;
+static int          MV_NullServiceId = -1;
+static void       ( *MV_NullCallback )( void ) = NULL;
+static int          MV_NullPlaying   = 0;
+
+/* forward references to file-scope mix bookkeeping (defined further down) */
+static int MV_MixPage;
+static int MV_NumberOfBuffers;
+
+static int MV_NullService( void )
+   {
+   if ( !MV_NullPlaying )
+      {
+      return 0;
+      }
+   // DIAGNOSTIC BISECTION: advance the mix page WITHOUT calling MV_ServiceVoc,
+   // so FX initialises and sounds are *played* (queued on the voice list) but
+   // never *mixed*.  If it still hangs, the fault is in the play/load path
+   // (sound -> loadsound -> MV_PlayVoice / FX_Init), not in the mixer; if it
+   // stops hanging, the fault is inside MV_ServiceVoc or its end-of-voice
+   // callback (MV_CallBackFunc -> TestCallBack).
+   (void)MV_NullCallback;
+   if ( --MV_NullCurrent <= 0 )
+      {
+      MV_NullCurrent = MV_NullTransfer;
+      MV_MixPage++;
+      if ( MV_MixPage >= MV_NumberOfBuffers )
+         {
+         MV_MixPage -= MV_NumberOfBuffers;
+         }
+      }
+   return 0;
+   }
+
+static int NULL_Init( void )
+   {
+   return( MV_Ok );
+   }
+
+static void NULL_StopPlayback( void )
+   {
+   if ( MV_NullServiceId >= 0 )
+      {
+      TSM_DelService( MV_NullServiceId );
+      MV_NullServiceId = -1;
+      }
+   MV_NullPlaying  = 0;
+   MV_NullBuffer   = NULL;
+   MV_NullCallback = NULL;
+   }
+
+static int NULL_BeginBufferedPlayback( char *buffer, int size, int divisions,
+   void ( *callback )( void ) )
+   {
+   if ( ( buffer == NULL ) || ( size <= 0 ) || ( divisions <= 0 ) ||
+        ( size < divisions ) )
+      {
+      return( MV_Error );
+      }
+
+   NULL_StopPlayback();
+
+   MV_NullBuffer   = buffer;
+   MV_NullTransfer = size / divisions;
+   MV_NullCurrent  = MV_NullTransfer;
+   MV_NullCallback = callback;
+   MV_NullPlaying  = 1;
+
+   MV_NullServiceId = TSM_NewService( MV_NullService, 1000, 1, 0 );
+   if ( MV_NullServiceId < 0 )
+      {
+      MV_NullPlaying = 0;
+      return( MV_Error );
+      }
+   return( MV_Ok );
+   }
+
+static int NULL_GetPlaybackRate( void )
+   {
+   return( 1000 );
+   }
+
+static int NULL_GetCurrentPos( void )
+   {
+   if ( !MV_NullPlaying )
+      {
+      return( -1 );
+      }
+   return( MV_NullTransfer - MV_NullCurrent );
+   }
+
+
 #define RoundFixed( fixedval, bits )            \
         (                                       \
           (                                     \
@@ -2042,6 +2146,19 @@ int MV_StartPlayback
          MV_MixRate = CVX_GetPlaybackRate();
          MV_DMAChannel = -1;
          break;
+
+      case Null :
+         status = NULL_BeginBufferedPlayback( MV_MixBuffer[ 0 ],
+            TotalBufferSize, MV_NumberOfBuffers,
+            MV_ServiceVoc );
+         if ( status != MV_Ok )
+            {
+            MV_SetErrorCode( MV_SoundSourceError );
+            return( MV_Error );
+            }
+         MV_MixRate = NULL_GetPlaybackRate();
+         MV_DMAChannel = -1;
+         break;
       #endif
       }
 
@@ -2093,6 +2210,10 @@ void MV_StopPlayback
          break;
       case Covox :
          CVX_StopPlayback();
+         break;
+
+      case Null :
+         NULL_StopPlayback();
          break;
       #endif
       }
@@ -3043,6 +3164,10 @@ int MV_TestPlayback
             MV_SetErrorCode( MV_SoundSourceFailure );
             pos = CVX_GetCurrentPos();
             break;
+         case Null :
+            MV_SetErrorCode( MV_SoundSourceFailure );
+            pos = NULL_GetCurrentPos();
+            break;
          #endif
 
          default :
@@ -3217,6 +3342,9 @@ int MV_Init
             {
             MV_SetErrorCode( MV_SoundSourceError );
             }
+         break;
+
+      case Null :
          break;
       #endif
 

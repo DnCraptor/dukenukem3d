@@ -191,7 +191,7 @@ extern volatile kb_scancode KB_LastScan;
 
 #define KB_ClearLastScanCode() { KB_SetLastScanCode( sc_None ); }
 
-#define KB_KeyPressed( scan )  ( KB_KeyDown[ ( scan ) ] != 0 )
+#define KB_KeyPressed( scan )  ( KB_ServiceEvents(), KB_KeyDown[ ( scan ) ] != 0 )
 
 #define KB_ClearKeyDown( scan ) { KB_KeyDown[ ( scan ) ] = false; }
 
@@ -205,6 +205,7 @@ extern volatile kb_scancode KB_LastScan;
 */
 
 void KB_KeyEvent( int scancode, boolean keypressed );  // Interprets scancodes
+void KB_ServiceEvents( void );         // Parses raw IRQ1 bytes in application context
 boolean KB_KeyWaiting( void );         // Checks if a character is waiting in the keyboard queue
 char    KB_Getch( void );              // Gets the next keypress
 void    KB_Addch( char ch );           // Adds key to end of queue

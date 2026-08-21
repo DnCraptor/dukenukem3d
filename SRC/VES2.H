@@ -18,6 +18,7 @@
 #endif
 #ifdef ELF_MODE
 #include "dos_guest_ptr.h"
+#include "dos_video.h"
 #define VES_GUEST_LINEAR(addr) ((long)(uintptr_t)dos_guest_linear_ptr((uint32_t)(addr)))
 #else
 #define VES_GUEST_LINEAR(addr) ((long)(addr))
@@ -610,31 +611,49 @@ void setvisualpage(long dapagenum)
 		}
 		else
 		{
-			p = ylookup[cy1]+cx1;
-			for(y=cy1;y<=cy2;y++)
+#ifdef ELF_MODE
+			uint32_t videoBufferSize = 0;
+			uint8_t *videoBuffer = dos_video_get_buffer(&videoBufferSize);
+
+			if ((videoBuffer != NULL) && ((uint32_t)imageSize <= videoBufferSize))
 			{
-				if ((p>>16) != curpag)
+				p = ylookup[cy1]+cx1;
+				for(y=cy1;y<=cy2;y++)
 				{
-					curpag = (p>>16);
-
-					setvesapage(curpag<<davesapageshift);
-					faketimerhandler();
+					copybufbyte(p+FP_OFF(screen),(long)(uintptr_t)(videoBuffer+p),dx);
+					p += ylookup[1];
+					if ((y&31) == 0) faketimerhandler();
 				}
-
-				i = (p&65535)+dx-65536;
-				if (i <= 0)
-					copybufbyte(p+FP_OFF(screen),VES_GUEST_LINEAR((uint32_t)((p&65535)+0xa0000u)),dx);
-				else
+			}
+			else
+#endif
+			{
+				p = ylookup[cy1]+cx1;
+				for(y=cy1;y<=cy2;y++)
 				{
-					copybufbyte(p+FP_OFF(screen),VES_GUEST_LINEAR((uint32_t)(0xb0000u-(dx-i))),dx-i);
+					if ((p>>16) != curpag)
+					{
+						curpag = (p>>16);
 
-					curpag = ((p+dx-1)>>16);
-					setvesapage(curpag<<davesapageshift);
-					faketimerhandler();
+						setvesapage(curpag<<davesapageshift);
+						faketimerhandler();
+					}
 
-					copybufbyte(p+(dx-i)+FP_OFF(screen),VES_GUEST_LINEAR(0xa0000u),i);
+					i = (p&65535)+dx-65536;
+					if (i <= 0)
+						copybufbyte(p+FP_OFF(screen),VES_GUEST_LINEAR((uint32_t)((p&65535)+0xa0000u)),dx);
+					else
+					{
+						copybufbyte(p+FP_OFF(screen),VES_GUEST_LINEAR((uint32_t)(0xb0000u-(dx-i))),dx-i);
+
+						curpag = ((p+dx-1)>>16);
+						setvesapage(curpag<<davesapageshift);
+						faketimerhandler();
+
+						copybufbyte(p+(dx-i)+FP_OFF(screen),VES_GUEST_LINEAR(0xa0000u),i);
+					}
+					p += ylookup[1];
 				}
-				p += ylookup[1];
 			}
 		}
 		permanentupdate = 0;

@@ -408,6 +408,7 @@ int FX_Init
       case SoundSource :
       case TandySoundSource :
       case Covox :
+      case Null :
       case UltraSound :
          devicestatus = MV_Init( SoundCard, FX_MixRate, numvoices,
             numchannels, samplebits );
@@ -466,6 +467,7 @@ int FX_Shutdown
       case SoundSource :
       case TandySoundSource :
       case Covox :
+      case Null :
       case UltraSound :
          status = MV_Shutdown();
          if ( status != MV_Ok )
@@ -513,6 +515,7 @@ int FX_SetCallBack
       case SoundSource :
       case TandySoundSource :
       case Covox :
+      case Null :
       case UltraSound :
          MV_SetCallBack( function );
          break;
