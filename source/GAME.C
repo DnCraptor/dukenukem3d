@@ -39,6 +39,9 @@ Prepared for public release: 03/21/2003 - Charlie Wiederhold, 3D Realms
 #include "sndcards.h"
 
 #include "duke3d.h"
+#ifdef ELF_MODE
+#include "dos_video.h"
+#endif
 #include "dos_mem.h"
 #include "dos_diag.h"
 #include "dos_guest_ptr.h"
@@ -2768,6 +2771,24 @@ void se40code(long x,long y,long z,long a,long h, long smoothratio)
 }
 
 static long oyrepeat=-1;
+
+#ifdef ELF_MODE
+static void native_vbe_begin_direct_frame(void)
+{
+    uint32_t videoBufferSize = 0;
+    uint8_t *videoBuffer;
+
+    if (vidoption != 1)
+        return;
+
+    videoBuffer = dos_video_get_buffer(&videoBufferSize);
+    if ((videoBuffer != NULL) &&
+        (videoBufferSize >= (uint32_t)ylookup[ydim]))
+        frameplace = (long)(uintptr_t)videoBuffer;
+}
+#else
+#define native_vbe_begin_direct_frame() ((void)0)
+#endif
 
 void displayrooms(short snum,long smoothratio)
 {
@@ -7759,6 +7780,7 @@ void main(int argc,char **argv)
         else
             i = 65536;
 
+        native_vbe_begin_direct_frame();
         displayrooms(screenpeek,i);
         displayrest(i);
 
@@ -8013,6 +8035,7 @@ long playback(void)
             nonsharedkeys();
 
             j = min(max((totalclock-lockclock)*(65536/TICSPERFRAME),0),65536);
+            native_vbe_begin_direct_frame();
             displayrooms(screenpeek,j);
             displayrest(j);
 

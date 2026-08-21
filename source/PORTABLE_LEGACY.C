@@ -10,7 +10,20 @@
 #include "dos_api_version.h"
 
 const native_ez_process_requirements __native_ez_process_requirements = {
-    16u * 1024u, /* native ARM stack: max remaining frame is loadtmb() ~8 KiB */
+    /*
+     * Native ARM stack.  The previous 16 KiB was sized around loadtmb()
+     * (~8 KiB frame) but NOT around the FX voice-play chain, which is
+     * entered from deep inside the animation/game frame loop:
+     *   playanm -> logoanimsounds -> sound -> FX_PlayVOC3D -> MV_PlayVOC3D
+     *   -> MV_PlayVOC -> MV_PlayLoopedVOC -> MV_SetVoiceVolume
+     *   -> MV_SetVoiceMixMode
+     * That path only exists when an FX device is enabled, and its
+     * cumulative depth overflowed the 16 KiB stack, HardFaulting core 0
+     * the instant the first FX sound played (the Logo, or a level's first
+     * positional sound via xyzsound()).  Right-size against the *.su stack
+     * frames along that chain; 32 KiB gives comfortable headroom.
+     */
+    32u * 1024u, /* native ARM stack */
     4u * 1024u,  /* guest DOS SS:SP stack for BIOS/IRQ servicing */
     DOS_API_VERSION
 };

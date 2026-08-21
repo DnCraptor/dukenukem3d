@@ -431,6 +431,17 @@ setvesa(long x, long y)
 		 * cannot call them, so always use the INT 10h fallback. */
 		setactiveentry = setvisualentry = setpaletteentry = 0;
 
+#ifdef ELF_MODE
+		/* Native VBE has one physical output surface. BUILD must render into
+		 * its software backbuffer and present only completed frames through
+		 * dos_video_get_buffer() in setvisualpage(). Do not use DOS VBE
+		 * LFB/banked page-flipping semantics here. */
+		linearmode = 0;
+		buffermode = 1;
+		imageSize = bytesperline*yres;
+		frameplace = FP_OFF(screen);
+		maxpages = 1;
+#else
 			//Linear mode
 		if (modeInfo.ModeAttributes&128) //128 is vbeMdLinear
 		{
@@ -478,6 +489,7 @@ setvesa(long x, long y)
 			}
 		}
 
+#endif
 		origbuffermode = buffermode;
 
 		j = 0;

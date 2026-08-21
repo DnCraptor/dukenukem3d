@@ -2145,7 +2145,11 @@ setgamemode(char davidoption, long daxdim, long daydim)
 	activepage = visualpage = 0;
 	switch(vidoption)
 	{
-		case 1: i = xdim*ydim; break;
+		case 1:
+				//bytesperline and imageSize are set from the selected VBE mode
+			if (setvesa(xdim,ydim) < 0) return(-1);
+			i = imageSize;
+			break;
 		case 2: xdim = 320; ydim = 200; i = xdim*ydim; break;
 		case 6: xdim = 320; ydim = 200; i = 131072; break;
 		default: return(-1);
@@ -2165,16 +2169,19 @@ setgamemode(char davidoption, long daxdim, long daydim)
 		 screenalloctype = 1;
 	}
 
-	frameplace = FP_OFF(screen);
-	horizlookup = (long *)(frameplace+i);
-	horizlookup2 = (long *)(frameplace+i+j);
+	if ((vidoption == 1) && (buffermode == 0))
+	{
+		if (linearmode != 0) frameplace = activepagelookup[0];
+		else frameplace = 0xa0000;
+	}
+	else frameplace = FP_OFF(screen);
+	horizlookup = (long *)(FP_OFF(screen)+i);
+	horizlookup2 = (long *)(FP_OFF(screen)+i+j);
 	horizycent = ((ydim*4)>>1);
 
 	switch(vidoption)
 	{
 		case 1:
-				//bytesperline is set in this function
-			if (setvesa(xdim,ydim) < 0) return(-1);
 			break;
 		case 2:
 			horizycent = ((ydim*4)>>1);  //HACK for switching to this mode
@@ -7972,7 +7979,7 @@ setviewtotile(short tilenume, long xsiz, long ysiz)
 
 setviewback()
 {
-	long i, j, k, xsiz, ysiz;
+	long i, j, k, stride;
 
 	if (setviewcnt <= 0) return;
 	setviewcnt--;
@@ -7984,11 +7991,17 @@ setviewback()
 	vidoption = bakvidoption[setviewcnt];
 	frameplace = bakframeplace[setviewcnt];
 	if (setviewcnt == 0)
-		k = bakxsiz[0];
+	{
+		k = ydim;
+		stride = bytesperline;
+	}
 	else
-		k = max(bakxsiz[setviewcnt-1],bakxsiz[setviewcnt]);
-	j = 0; for(i=0;i<=k;i++) ylookup[i] = j, j += bytesperline;
-	setvlinebpl(bytesperline);
+	{
+		k = bakxsiz[setviewcnt-1];
+		stride = bakysiz[setviewcnt-1];
+	}
+	j = 0; for(i=0;i<=k;i++) ylookup[i] = j, j += stride;
+	setvlinebpl(stride);
 }
 
 squarerotatetile(short tilenume)
