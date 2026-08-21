@@ -392,6 +392,7 @@ void CONTROL_GetInput(ControlInfo *info)
     int32 mouse_buttons = 0;
 
     TSM_Yield();
+    KB_ServiceEvents();
 
     CONTROL_ButtonHeldState1 = CONTROL_ButtonState1;
     CONTROL_ButtonHeldState2 = CONTROL_ButtonState2;

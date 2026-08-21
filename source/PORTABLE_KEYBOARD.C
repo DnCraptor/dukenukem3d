@@ -196,15 +196,24 @@ static void kb_process_raw(unsigned int raw)
 
 static bool kb_native_irq(void *cpu)
 {
+    unsigned int head, next;
+    unsigned int raw;
+
     (void)cpu;
 
     /*
-     * Keep the native IRQ boundary minimal, exactly like working DOOM:
-     * capture one raw byte, acknowledge PIC, and return.  Do not mutate
-     * KB_KeyDown[] or parser state while the guest IRQ callback is active.
+     * Consume exactly one controller byte per IRQ1, but never overwrite an
+     * unprocessed raw byte if application-side parsing was delayed by a
+     * synchronous operation (disk I/O in particular).
      */
-    kb_raw_queue[kb_raw_head & KB_RAW_QUEUE_MASK] = (unsigned char)inp(0x60);
-    ++kb_raw_head;
+    raw = inp(0x60);
+    head = kb_raw_head;
+    next = (head + 1u) & KB_RAW_QUEUE_MASK;
+    if (next != kb_raw_tail)
+    {
+        kb_raw_queue[head] = (unsigned char)raw;
+        kb_raw_head = next;
+    }
     outp(0x20, 0x20);
     return true;
 }
@@ -213,8 +222,9 @@ void KB_ServiceEvents(void)
 {
     while (kb_raw_tail != kb_raw_head)
     {
-        unsigned int raw = kb_raw_queue[kb_raw_tail & KB_RAW_QUEUE_MASK];
-        ++kb_raw_tail;
+        unsigned int tail = kb_raw_tail;
+        unsigned int raw = kb_raw_queue[tail];
+        kb_raw_tail = (tail + 1u) & KB_RAW_QUEUE_MASK;
         kb_process_raw(raw);
     }
 }
