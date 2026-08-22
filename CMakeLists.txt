@@ -206,6 +206,12 @@ set(DUKE_SETUP_SOURCES
     UTIL/DUKESETUP.C
     source/PORTABLE_SCRIPT.C
 )
+# Treat SETUP sources as configure dependencies too.  The final EZ image is
+# produced by a post-link converter, so this gives Ninja an explicit reason
+# to re-evaluate the separate SETUP pipeline after SETUP-only edits.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    ${DUKE_SETUP_SOURCES}
+)
 set_source_files_properties(${DUKE_SETUP_SOURCES} PROPERTIES
     LANGUAGE C
     COMPILE_OPTIONS "-std=gnu90"

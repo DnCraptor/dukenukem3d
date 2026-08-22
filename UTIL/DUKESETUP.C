@@ -15,6 +15,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#define MOUSE_LEFT 1u
+
 #define SETUP_CFG "DUKE3D.CFG"
 #define SCREEN_COLS 80
 #define SCREEN_ROWS 25
@@ -35,6 +37,14 @@
 static unsigned char visible_page = 0;
 static unsigned char draw_page = 1;
 static int current_selection = 0;
+static int cursor_shape_saved = 0;
+static unsigned char saved_cursor_start = 0;
+static unsigned char saved_cursor_end = 0;
+static int mouse_present = 0;
+static int mouse_visible = 0;
+static unsigned mouse_buttons = 0;
+
+static void wait_for_ack(void);
 
 static const char *const menu_items[] = {
     "Sound Setup",
@@ -74,6 +84,104 @@ static void video_mode3(void)
     draw_page = 1;
 }
 
+
+static void bios_save_and_hide_cursor(void)
+{
+    union REGS regs;
+
+    memset(&regs, 0, sizeof(regs));
+    regs.h.ah = 0x03;
+    regs.h.bh = visible_page;
+    int386(0x10, &regs, &regs);
+    saved_cursor_start = regs.h.ch;
+    saved_cursor_end = regs.h.cl;
+    cursor_shape_saved = 1;
+
+    memset(&regs, 0, sizeof(regs));
+    regs.h.ah = 0x01;
+    regs.h.ch = 0x20;
+    regs.h.cl = saved_cursor_end;
+    int386(0x10, &regs, &regs);
+}
+
+static void bios_restore_cursor(void)
+{
+    union REGS regs;
+
+    if (!cursor_shape_saved)
+        return;
+
+    memset(&regs, 0, sizeof(regs));
+    regs.h.ah = 0x01;
+    regs.h.ch = saved_cursor_start;
+    regs.h.cl = saved_cursor_end;
+    int386(0x10, &regs, &regs);
+}
+
+static int mouse_reset(void)
+{
+    union REGS in, out;
+
+    memset(&in, 0, sizeof(in));
+    memset(&out, 0, sizeof(out));
+    in.w.ax = 0;
+    int386(0x33, &in, &out);
+    mouse_buttons = 0;
+    return out.w.ax != 0;
+}
+
+static void mouse_show(void)
+{
+    union REGS in, out;
+
+    if (!mouse_present || mouse_visible)
+        return;
+    memset(&in, 0, sizeof(in));
+    in.w.ax = 1;
+    int386(0x33, &in, &out);
+    mouse_visible = 1;
+}
+
+static void mouse_hide(void)
+{
+    union REGS in, out;
+
+    if (!mouse_present || !mouse_visible)
+        return;
+    memset(&in, 0, sizeof(in));
+    in.w.ax = 2;
+    int386(0x33, &in, &out);
+    mouse_visible = 0;
+}
+
+static unsigned mouse_state(int *x, int *y)
+{
+    union REGS in, out;
+
+    memset(&in, 0, sizeof(in));
+    memset(&out, 0, sizeof(out));
+    in.w.ax = 3;
+    int386(0x33, &in, &out);
+    if (x) *x = (int)out.w.cx;
+    if (y) *y = (int)out.w.dx;
+    return (unsigned)(out.w.bx & 7u);
+}
+
+void _fini(void *ctx)
+{
+    union REGS regs;
+    (void)ctx;
+
+    mouse_hide();
+
+    memset(&regs, 0, sizeof(regs));
+    regs.h.ah = 0x05;
+    regs.h.al = 0;
+    int386(0x10, &regs, &regs);
+
+    bios_restore_cursor();
+}
+
 static void bios_set_cursor(unsigned char page, int x, int y)
 {
     union REGS regs;
@@ -111,6 +219,8 @@ static void present_page(void)
     union REGS regs;
     unsigned char old_visible = visible_page;
 
+    mouse_hide();
+
     memset(&regs, 0, sizeof(regs));
     regs.h.ah = 0x05;
     regs.h.al = draw_page;
@@ -118,6 +228,7 @@ static void present_page(void)
 
     visible_page = draw_page;
     draw_page = old_visible;
+    mouse_show();
 }
 
 static void cell(int x, int y, unsigned char ch, unsigned char attr)
@@ -241,7 +352,7 @@ static void message_box(const char *line1, const char *line2)
     text_center(x + 1, y + 3, w - 2, line2, ATTR_WINDOW);
     text_center(x + 1, y + 5, w - 2, "Press any key to continue", ATTR_BORDER);
     present_page();
-    (void)getch();
+    wait_for_ack();
 }
 
 static int read_key(void)
@@ -250,6 +361,74 @@ static int read_key(void)
     if (ch == KEY_EXTENDED)
         return 0x100 | getch();
     return ch;
+}
+
+static int menu_item_at_mouse(int mx, int my)
+{
+    const int x = 17;
+    const int y = 4;
+    const int w = 46;
+    int col = mx >> 3;
+    int row = my >> 3;
+    int item;
+
+    if (col < x + 2 || col >= x + w - 2)
+        return -1;
+
+    item = row - (y + 5);
+    if (item < 0 || item >= MENU_COUNT)
+        return -1;
+    return item;
+}
+
+static int read_menu_input(int *selected)
+{
+    for (;;) {
+        if (kbhit())
+            return read_key();
+
+        if (mouse_present) {
+            int mx, my;
+            unsigned buttons = mouse_state(&mx, &my);
+            int item = menu_item_at_mouse(mx, my);
+
+            if (item >= 0 && item != *selected) {
+                *selected = item;
+                draw_main_menu(*selected);
+            }
+
+            if ((buttons & MOUSE_LEFT) && !(mouse_buttons & MOUSE_LEFT)) {
+                mouse_buttons = buttons;
+                if (item >= 0)
+                    return KEY_ENTER;
+            } else {
+                mouse_buttons = buttons;
+            }
+        }
+    }
+}
+
+static void wait_for_ack(void)
+{
+    unsigned old_buttons = mouse_buttons;
+
+    for (;;) {
+        if (kbhit()) {
+            (void)read_key();
+            return;
+        }
+
+        if (mouse_present) {
+            int mx, my;
+            unsigned buttons = mouse_state(&mx, &my);
+            (void)mx;
+            (void)my;
+            mouse_buttons = buttons;
+            if ((buttons & MOUSE_LEFT) && !(old_buttons & MOUSE_LEFT))
+                return;
+            old_buttons = buttons;
+        }
+    }
 }
 
 static int load_or_create_cfg(void)
@@ -276,6 +455,12 @@ int main(void)
     int dirty = 0;
 
     video_mode3();
+    bios_save_and_hide_cursor();
+    mouse_present = mouse_reset();
+    if (mouse_present) {
+        int mx, my;
+        mouse_buttons = mouse_state(&mx, &my);
+    }
     handle = load_or_create_cfg();
     if (handle < 0) {
         desktop();
@@ -287,7 +472,7 @@ int main(void)
     while (!done) {
         int key;
         draw_main_menu(selected);
-        key = read_key();
+        key = read_menu_input(&selected);
 
         if (key == KEY_ESC) {
             done = 1;
