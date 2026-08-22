@@ -265,6 +265,7 @@ static VoiceNode *MV_Voices = NULL;
 static volatile VoiceNode VoiceList;
 static volatile VoiceNode VoicePool;
 
+static int MV_PlayPage     = 0;
 static int MV_MixPage      = 0;
 static int MV_VoiceHandle  = MV_MinVoiceHandle;
 
@@ -515,6 +516,12 @@ void MV_PlayVoice
 
    {
    unsigned flags;
+   int buffer;
+
+   for ( buffer = 0; buffer < MV_NumberOfBuffers; buffer++ )
+      {
+      voice->Active[ buffer ] = TRUE;
+      }
 
    flags = DisableInterrupts();
    LL_SortedInsertion( &VoiceList, voice, prev, next, VoiceNode, priority );
@@ -548,6 +555,40 @@ void MV_StopVoice
 
 
 /*---------------------------------------------------------------------
+   Function: MV_DeleteDeadVoices
+
+   Releases voices whose final mixed page has finished playback.
+---------------------------------------------------------------------*/
+
+static void MV_DeleteDeadVoices
+   (
+   int page
+   )
+
+   {
+   VoiceNode *voice;
+   VoiceNode *next;
+
+   for ( voice = VoiceList.next; voice != &VoiceList; voice = next )
+      {
+      next = voice->next;
+
+      if ( !voice->Active[ page ] )
+         {
+         unsigned long callbackval = voice->callbackval;
+
+         MV_StopVoice( voice );
+
+         if ( MV_CallBackFunc )
+            {
+            MV_CallBackFunc( callbackval );
+            }
+         }
+      }
+   }
+
+
+/*---------------------------------------------------------------------
    Function: MV_ServiceVoc
 
    Starts playback of the waiting buffer and mixes the next one.
@@ -564,6 +605,7 @@ void MV_ServiceVoc
    VoiceNode *voice;
    VoiceNode *next;
    char      *buffer;
+   int        ErasePage;
 
    if ( MV_DMAChannel >= 0 )
       {
@@ -572,6 +614,10 @@ void MV_ServiceVoc
       MV_MixPage   = ( unsigned )( buffer - MV_MixBuffer[ 0 ] );
       MV_MixPage >>= MV_BuffShift;
       }
+
+   ErasePage = MV_PlayPage;
+   MV_DeleteDeadVoices( ErasePage );
+   MV_PlayPage = MV_MixPage;
 
    // Toggle which buffer we'll mix next
    MV_MixPage++;
@@ -686,17 +732,7 @@ void MV_ServiceVoc
       MV_MixFunction( voice, MV_MixPage );
 
       next = voice->next;
-
-      // Is this voice done?
-      if ( !voice->Playing )
-         {
-         MV_StopVoice( voice );
-
-         if ( MV_CallBackFunc )
-            {
-            MV_CallBackFunc( voice->callbackval );
-            }
-         }
+      voice->Active[ MV_MixPage ] = voice->Playing;
       }
    }
 
@@ -2071,7 +2107,8 @@ int MV_StartPlayback
       }
 
    // Set the mix buffer variables
-   MV_MixPage = 1;
+   MV_PlayPage = 0;
+   MV_MixPage  = 1;
 
    MV_MixFunction = MV_Mix;
 
@@ -2695,14 +2732,6 @@ int MV_PlayLoopedWAV
       return( MV_Error );
       }
 
-   if ( MV_SoundCard == Null )
-      {
-      unsigned flags = DisableInterrupts();
-      LL_Add( &VoicePool, voice, next, prev );
-      RestoreInterrupts( flags );
-      return( MV_Warning );
-      }
-
    voice->wavetype    = WAV;
    voice->bits        = format->nBitsPerSample;
    voice->GetSound    = MV_GetNextWAVBlock;
@@ -2876,14 +2905,6 @@ int MV_PlayLoopedVOC
       {
       MV_SetErrorCode( MV_NoVoices );
       return( MV_Error );
-      }
-
-   if ( MV_SoundCard == Null )
-      {
-      unsigned flags = DisableInterrupts();
-      LL_Add( &VoicePool, voice, next, prev );
-      RestoreInterrupts( flags );
-      return( MV_Warning );
       }
 
    voice->wavetype    = VOC;
@@ -3602,6 +3623,7 @@ void MV_UnlockMemory
    DPMI_Unlock( MV_Voices );
    DPMI_Unlock( VoiceList );
    DPMI_Unlock( VoicePool );
+   DPMI_Unlock( MV_PlayPage );
    DPMI_Unlock( MV_MixPage );
    DPMI_Unlock( MV_VoiceHandle );
    DPMI_Unlock( MV_CallBackFunc );
@@ -3661,6 +3683,7 @@ int MV_LockMemory
    status |= DPMI_Lock( MV_Voices );
    status |= DPMI_Lock( VoiceList );
    status |= DPMI_Lock( VoicePool );
+   status |= DPMI_Lock( MV_PlayPage );
    status |= DPMI_Lock( MV_MixPage );
    status |= DPMI_Lock( MV_VoiceHandle );
    status |= DPMI_Lock( MV_CallBackFunc );

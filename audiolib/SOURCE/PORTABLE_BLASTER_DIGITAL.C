@@ -41,9 +41,14 @@ static int service(void)
     }
 
     steps = (block - last_dma_block + play_divisions) % play_divisions;
-    while(steps-- > 0)
+    if(steps > 0)
     {
-        last_dma_block = (last_dma_block + 1) % play_divisions;
+        /* MV_ServiceVoc() derives the mix page from the current DMA
+           position itself.  When several DMA blocks elapsed between
+           cooperative service points, replaying one callback per missed
+           block makes every callback observe the same current position
+           and remix the same page repeatedly. */
+        last_dma_block = block;
         callback();
     }
     return 0;

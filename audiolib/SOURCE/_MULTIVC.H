@@ -117,6 +117,7 @@ typedef struct VoiceNode
    unsigned long RateScale;
    unsigned long position;
    int           Playing;
+   int           Active[ NumberOfBuffers ];
 
    int           handle;
    int           priority;
