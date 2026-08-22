@@ -426,6 +426,7 @@ static void MV_Mix
    char          *start;
    int            length;
    long           voclength;
+   long           mixlength;
    unsigned long  position;
    unsigned long  rate;
    unsigned long  FixedPointBufferSize;
@@ -483,16 +484,29 @@ static void MV_Mix
          voclength = length;
          }
 
-      voice->mix( position, rate, start, voclength );
+      /* The original x86 mixers process samples in pairs.  For an odd
+         source fragment they mix the even part, advance the source over
+         the final odd sample, and leave the current destination slot for
+         the following VOC block.  Preserve that block-boundary behavior
+         here.  A one-sample fragment is the native-only exception: the C
+         mixer can consume it directly, avoiding the original zero-progress
+         corner case on a one-sample loop. */
+      mixlength = voclength & ~1L;
+      if ( mixlength == 0 )
+         {
+         mixlength = voclength;
+         }
 
-      // NOTE: the mixers consume the full 'voclength' samples (see
-      // PORTABLE_MIX.C).  They must not round the count down to an even
-      // value: a looped voice whose block yields an odd voclength of 1
-      // would then advance the output by zero samples, so 'length' below
-      // never reaches 0 and this loop spins forever (hang on core 0).
-      voice->position = MV_MixPosition;
+      voice->mix( position, rate, start, mixlength );
+      position = MV_MixPosition;
 
-      length -= voclength;
+      if ( mixlength != voclength )
+         {
+         position += rate;
+         }
+
+      voice->position = position;
+      length -= mixlength;
 
       if ( voice->position >= voice->length )
          {
