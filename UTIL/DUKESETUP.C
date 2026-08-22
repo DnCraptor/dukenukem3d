@@ -12,14 +12,12 @@
 
 #include <conio.h>
 #include <dos.h>
-#include <dos_phys.h>
 #include <stdio.h>
 #include <string.h>
 
 #define SETUP_CFG "DUKE3D.CFG"
 #define SCREEN_COLS 80
 #define SCREEN_ROWS 25
-#define TEXT_BASE 0xb8000u
 
 #define ATTR_DESKTOP 0x70
 #define ATTR_HEADER  0x70
@@ -33,6 +31,10 @@
 #define KEY_EXTENDED   0
 #define SCAN_UP     0x48
 #define SCAN_DOWN   0x50
+
+static unsigned char visible_page = 0;
+static unsigned char draw_page = 1;
+static int current_selection = 0;
 
 static const char *const menu_items[] = {
     "Sound Setup",
@@ -68,23 +70,66 @@ static void video_mode3(void)
     memset(&regs, 0, sizeof(regs));
     regs.w.ax = 0x0003;
     int386(0x10, &regs, &regs);
+    visible_page = 0;
+    draw_page = 1;
+}
+
+static void bios_set_cursor(unsigned char page, int x, int y)
+{
+    union REGS regs;
+    memset(&regs, 0, sizeof(regs));
+    regs.h.ah = 0x02;
+    regs.h.bh = page;
+    regs.h.dh = (unsigned char)y;
+    regs.h.dl = (unsigned char)x;
+    int386(0x10, &regs, &regs);
+}
+
+static void bios_write_repeat(int x, int y, unsigned char ch,
+                              unsigned char attr, int count)
+{
+    union REGS regs;
+
+    if (count <= 0 || (unsigned)x >= SCREEN_COLS ||
+        (unsigned)y >= SCREEN_ROWS)
+        return;
+    if (x + count > SCREEN_COLS)
+        count = SCREEN_COLS - x;
+
+    bios_set_cursor(draw_page, x, y);
+    memset(&regs, 0, sizeof(regs));
+    regs.h.ah = 0x09;
+    regs.h.al = ch;
+    regs.h.bh = draw_page;
+    regs.h.bl = attr;
+    regs.w.cx = (uint16_t)count;
+    int386(0x10, &regs, &regs);
+}
+
+static void present_page(void)
+{
+    union REGS regs;
+    unsigned char old_visible = visible_page;
+
+    memset(&regs, 0, sizeof(regs));
+    regs.h.ah = 0x05;
+    regs.h.al = draw_page;
+    int386(0x10, &regs, &regs);
+
+    visible_page = draw_page;
+    draw_page = old_visible;
 }
 
 static void cell(int x, int y, unsigned char ch, unsigned char attr)
 {
-    uint32_t addr;
-    if ((unsigned)x >= SCREEN_COLS || (unsigned)y >= SCREEN_ROWS)
-        return;
-    addr = TEXT_BASE + (uint32_t)((y * SCREEN_COLS + x) * 2);
-    dos_phys_write16(addr, (uint16_t)ch | ((uint16_t)attr << 8));
+    bios_write_repeat(x, y, ch, attr, 1);
 }
 
 static void fill(int x, int y, int w, int h, unsigned char ch, unsigned char attr)
 {
-    int xx, yy;
+    int yy;
     for (yy = 0; yy < h; ++yy)
-        for (xx = 0; xx < w; ++xx)
-            cell(x + xx, y + yy, ch, attr);
+        bios_write_repeat(x, y + yy, ch, attr, w);
 }
 
 static void text(int x, int y, const char *s, unsigned char attr)
@@ -145,7 +190,7 @@ static void desktop(void)
     fill(0, SCREEN_ROWS - 1, SCREEN_COLS, 1, ' ', ATTR_HEADER);
 }
 
-static void draw_main_menu(int selected)
+static void draw_main_menu_content(int selected)
 {
     const int x = 17;
     const int y = 4;
@@ -176,6 +221,13 @@ static void draw_main_menu(int selected)
     text_center(0, SCREEN_ROWS - 1, SCREEN_COLS, menu_help[selected], ATTR_HEADER);
 }
 
+static void draw_main_menu(int selected)
+{
+    current_selection = selected;
+    draw_main_menu_content(selected);
+    present_page();
+}
+
 static void message_box(const char *line1, const char *line2)
 {
     const int x = 20;
@@ -183,10 +235,12 @@ static void message_box(const char *line1, const char *line2)
     const int w = 40;
     const int h = 7;
 
+    draw_main_menu_content(current_selection);
     box(x, y, w, h);
     text_center(x + 1, y + 2, w - 2, line1, ATTR_WINDOW);
     text_center(x + 1, y + 3, w - 2, line2, ATTR_WINDOW);
     text_center(x + 1, y + 5, w - 2, "Press any key to continue", ATTR_BORDER);
+    present_page();
     (void)getch();
 }
 
