@@ -380,6 +380,17 @@ void SCRIPT_PutString(int32 handle, char *sectionname, char *entryname, char *st
     (void)ps_set_entry(sc, sectionname, entryname, value);
 }
 
+void SCRIPT_PutDoubleString(int32 handle, char *sectionname, char *entryname,
+                            char *string1, char *string2)
+{
+    ps_script_t *sc = ps_handle(handle);
+    char value[PS_VALUE_LEN];
+    if (!sc) return;
+    sprintf(value, "\"%s\",\"%s\"",
+            string1 ? string1 : "", string2 ? string2 : "");
+    (void)ps_set_entry(sc, sectionname, entryname, value);
+}
+
 void SCRIPT_PutNumber(int32 handle, char *sectionname, char *entryname,
                       int32 number, boolean hexadecimal, boolean defaultvalue)
 {

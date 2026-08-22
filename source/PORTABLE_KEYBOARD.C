@@ -43,6 +43,7 @@ static const struct kb_name kb_names[] = {
     {"1", sc_1}, {"2", sc_2}, {"3", sc_3}, {"4", sc_4}, {"5", sc_5},
     {"6", sc_6}, {"7", sc_7}, {"8", sc_8}, {"9", sc_9}, {"0", sc_0},
     {"-", sc_Minus}, {"=", sc_Equals}, {"Backspace", sc_BackSpace},
+    {"BakSpc", sc_BackSpace},
     {"Tab", sc_Tab}, {"Q", sc_Q}, {"W", sc_W}, {"E", sc_E}, {"R", sc_R},
     {"T", sc_T}, {"Y", sc_Y}, {"U", sc_U}, {"I", sc_I}, {"O", sc_O},
     {"P", sc_P}, {"[", sc_OpenBracket}, {"]", sc_CloseBracket},

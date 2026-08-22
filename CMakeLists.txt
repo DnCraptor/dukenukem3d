@@ -205,6 +205,7 @@ set(DUKE_SETUP_TARGET setup)
 set(DUKE_SETUP_SOURCES
     UTIL/DUKESETUP.C
     source/PORTABLE_SCRIPT.C
+    source/PORTABLE_KEYBOARD.C
 )
 # Treat SETUP sources as configure dependencies too.  The final EZ image is
 # produced by a post-link converter, so this gives Ninja an explicit reason
