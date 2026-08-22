@@ -60,6 +60,7 @@ static void wait_for_ack(void);
 static const char *const menu_items[] = {
     "Sound Setup",
     "Screen Setup",
+    "Game Setup",
     "Controller Setup",
     "Exit"
 };
@@ -67,6 +68,7 @@ static const char *const menu_items[] = {
 static const char *const menu_help[] = {
     "Setup sound and music for Duke Nukem 3D",
     "Setup screen modes for Duke Nukem 3D",
+    "Setup gameplay preferences for Duke Nukem 3D",
     "Setup controls. Change button and key assignments.",
     "Save the current setup and exit"
 };
@@ -1026,6 +1028,139 @@ static int screen_setup_page(int handle)
 
 
 
+typedef struct setup_game_s {
+    int32 run_mode;
+    int32 crosshairs;
+    int32 gamma;
+    int32 screen_size;
+    int32 weapon_choice[10];
+} setup_game_t;
+
+static const char *const weapon_names[] = {
+    "Knee", "Pistol", "Shotgun", "Chaingun", "RPG",
+    "Pipe Bomb", "Shrinker", "Devastator", "Tripbomb", "Freezer"
+};
+
+static void load_game_cfg(int handle, setup_game_t *g)
+{
+    static const int defaults[10] = { 3, 4, 5, 7, 8, 6, 0, 2, 9, 1 };
+    int i;
+    char entry[32];
+    cfg_get_number_default(handle, "Misc", "RunMode", &g->run_mode, 0);
+    cfg_get_number_default(handle, "Misc", "Crosshairs", &g->crosshairs, 0);
+    cfg_get_number_default(handle, "Screen Setup", "ScreenGamma", &g->gamma, 0);
+    cfg_get_number_default(handle, "Screen Setup", "ScreenSize", &g->screen_size, 8);
+    for (i = 0; i < 10; ++i) {
+        sprintf(entry, "WeaponChoice%d", i);
+        cfg_get_number_default(handle, "Misc", entry, &g->weapon_choice[i], defaults[i]);
+        if (g->weapon_choice[i] < 0 || g->weapon_choice[i] > 9)
+            g->weapon_choice[i] = defaults[i];
+    }
+}
+
+static void save_game_cfg(int handle, const setup_game_t *g)
+{
+    int i;
+    char entry[32];
+    SCRIPT_PutNumber(handle, "Misc", "RunMode", g->run_mode, false, false);
+    SCRIPT_PutNumber(handle, "Misc", "Crosshairs", g->crosshairs, false, false);
+    SCRIPT_PutNumber(handle, "Screen Setup", "ScreenGamma", g->gamma, false, false);
+    SCRIPT_PutNumber(handle, "Screen Setup", "ScreenSize", g->screen_size, false, false);
+    for (i = 0; i < 10; ++i) {
+        sprintf(entry, "WeaponChoice%d", i);
+        SCRIPT_PutNumber(handle, "Misc", entry, g->weapon_choice[i], false, false);
+    }
+}
+
+static void draw_game_menu(const setup_game_t *g, int selected)
+{
+    const int x = 13, y = 2, w = 54, h = 22;
+    static const char *const labels[] = {
+        "Auto Run", "Crosshairs", "Screen Gamma", "Screen Size",
+        "Weapon Preference 1", "Weapon Preference 2", "Weapon Preference 3",
+        "Weapon Preference 4", "Weapon Preference 5", "Weapon Preference 6",
+        "Weapon Preference 7", "Weapon Preference 8", "Weapon Preference 9",
+        "Weapon Preference 10"
+    };
+    int i;
+    char value[32];
+    desktop(); box(x, y, w, h);
+    text_center(x + 1, y + 1, w - 2, "Game Setup", ATTR_WINDOW);
+    hline(x, y + 2, w, ATTR_BORDER);
+    for (i = 0; i < 14; ++i) {
+        int row = y + 3 + i;
+        unsigned char a = i == selected ? ATTR_SELECT : ATTR_WINDOW;
+        fill(x + 2, row, w - 4, 1, ' ', a);
+        text(x + 3, row, labels[i], a);
+        if (i == 0) strcpy(value, g->run_mode ? "On" : "Off");
+        else if (i == 1) strcpy(value, g->crosshairs ? "On" : "Off");
+        else if (i == 2) sprintf(value, "%ld", (long)g->gamma);
+        else if (i == 3) sprintf(value, "%ld", (long)g->screen_size);
+        else strcpy(value, weapon_names[g->weapon_choice[i - 4]]);
+        text(x + 33, row, value, a);
+    }
+    hline(x, y + h - 3, w, ATTR_BORDER);
+    text_center(x + 1, y + h - 2, w - 2,
+                "Esc Back   Up/Down Move   Enter Choose", ATTR_WINDOW);
+    present_page();
+}
+
+static int game_setup_page(int handle)
+{
+    setup_game_t g;
+    static const int gamma_values[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    static const int size_values[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+    int selected = 0, changed = 0;
+    load_game_cfg(handle, &g);
+    for (;;) {
+        int key, choice, old;
+        draw_game_menu(&g, selected);
+        key = read_key();
+        if (key == KEY_ESC)
+            return changed;
+        if (key == (0x100 | SCAN_UP)) {
+            if (--selected < 0) selected = 13;
+            continue;
+        }
+        if (key == (0x100 | SCAN_DOWN)) {
+            if (++selected > 13) selected = 0;
+            continue;
+        }
+        if (key != KEY_ENTER)
+            continue;
+        if (selected == 0) {
+            old = g.run_mode; g.run_mode = choose_boolean("Auto Run", g.run_mode);
+            changed |= old != g.run_mode;
+        } else if (selected == 1) {
+            old = g.crosshairs; g.crosshairs = choose_boolean("Crosshairs", g.crosshairs);
+            changed |= old != g.crosshairs;
+        } else if (selected == 2) {
+            old = g.gamma;
+            g.gamma = choose_numeric_value("Screen Gamma", gamma_values,
+                                           ARRAY_COUNT(gamma_values), g.gamma, "");
+            changed |= old != g.gamma;
+        } else if (selected == 3) {
+            old = g.screen_size;
+            g.screen_size = choose_numeric_value("Screen Size", size_values,
+                                                 ARRAY_COUNT(size_values), g.screen_size, "");
+            changed |= old != g.screen_size;
+        } else {
+            int idx = selected - 4;
+            choice = choose_from_list("Weapon Preference", weapon_names, 10,
+                                      (int)g.weapon_choice[idx]);
+            if (choice >= 0) {
+                changed |= g.weapon_choice[idx] != choice;
+                g.weapon_choice[idx] = choice;
+            }
+        }
+        if (changed) {
+            save_game_cfg(handle, &g);
+            SCRIPT_Save(handle, SETUP_CFG);
+        }
+    }
+}
+
+
 typedef struct setup_mouse_s {
     char button[3][32];
     char clicked[3][32];
@@ -1374,19 +1509,175 @@ static int mouse_setup_page(int handle)
     }
 }
 
-static void draw_controller_menu(int selected)
+
+typedef struct setup_joystick_s {
+    char button[2][32];
+    char analog[2][32];
+    char digital[2][2][32];
+    int32 scale[2];
+    int32 port;
+} setup_joystick_t;
+
+static void load_joystick_cfg(int handle, setup_joystick_t *j)
 {
-    const int x = 18, y = 6, w = 44, h = 12;
-    static const char *const labels[] = { "Setup Keyboard", "Setup Mouse" };
+    int i, d;
+    char entry[40];
+    static const char *const button_defaults[] = { "Fire", "Strafe" };
+    static const char *const analog_defaults[] = { "analog_turning", "analog_moving" };
+    memset(j, 0, sizeof(*j));
+    for (i = 0; i < 2; ++i) {
+        sprintf(entry, "JoystickButton%d", i);
+        strcpy(j->button[i], button_defaults[i]);
+        SCRIPT_GetString(handle, "Controls", entry, j->button[i]);
+        sprintf(entry, "JoystickAnalogAxes%d", i);
+        strcpy(j->analog[i], analog_defaults[i]);
+        SCRIPT_GetString(handle, "Controls", entry, j->analog[i]);
+        for (d = 0; d < 2; ++d) {
+            sprintf(entry, "JoystickDigitalAxes%d_%d", i, d);
+            j->digital[i][d][0] = 0;
+            SCRIPT_GetString(handle, "Controls", entry, j->digital[i][d]);
+        }
+        sprintf(entry, "JoystickAnalogScale%d", i);
+        cfg_get_number_default(handle, "Controls", entry, &j->scale[i], 65536);
+    }
+    cfg_get_number_default(handle, "Controls", "JoystickPort", &j->port, 0);
+    if (j->port != 0) j->port = 0;
+}
+
+static void save_joystick_cfg(int handle, const setup_joystick_t *j)
+{
+    int i, d;
+    char entry[40];
+    for (i = 0; i < 2; ++i) {
+        sprintf(entry, "JoystickButton%d", i);
+        SCRIPT_PutString(handle, "Controls", entry, (char *)j->button[i]);
+        sprintf(entry, "JoystickAnalogAxes%d", i);
+        SCRIPT_PutString(handle, "Controls", entry, (char *)j->analog[i]);
+        for (d = 0; d < 2; ++d) {
+            sprintf(entry, "JoystickDigitalAxes%d_%d", i, d);
+            SCRIPT_PutString(handle, "Controls", entry, (char *)j->digital[i][d]);
+        }
+        sprintf(entry, "JoystickAnalogScale%d", i);
+        SCRIPT_PutNumber(handle, "Controls", entry, j->scale[i], false, false);
+    }
+    SCRIPT_PutNumber(handle, "Controls", "JoystickPort", 0, false, false);
+}
+
+static void draw_joystick_menu(const setup_joystick_t *j, int selected)
+{
+    const int x = 10, y = 2, w = 60, h = 22;
+    static const char *const labels[] = {
+        "Button 1", "Button 2", "X Axis Analog", "Y Axis Analog",
+        "X Axis Left", "X Axis Right", "Y Axis Up", "Y Axis Down",
+        "X Axis Scale", "Y Axis Scale"
+    };
     int i;
+    char value[40];
+    desktop(); box(x, y, w, h);
+    text_center(x + 1, y + 1, w - 2, "Setup Joystick", ATTR_WINDOW);
+    hline(x, y + 2, w, ATTR_BORDER);
+    for (i = 0; i < 10; ++i) {
+        int row = y + 4 + i;
+        unsigned char a = i == selected ? ATTR_SELECT : ATTR_WINDOW;
+        fill(x + 2, row, w - 4, 1, ' ', a);
+        text(x + 3, row, labels[i], a);
+        if (i < 2) strcpy(value, j->button[i][0] ? j->button[i] : "None");
+        else if (i < 4) strcpy(value, j->analog[i - 2][0] ? j->analog[i - 2] : "None");
+        else if (i < 8) {
+            int axis = (i - 4) / 2, dir = (i - 4) & 1;
+            strcpy(value, j->digital[axis][dir][0] ? j->digital[axis][dir] : "None");
+        } else sprintf(value, "%ld", (long)(j->scale[i - 8] >> 12));
+        text(x + 29, row, value, a);
+    }
+    hline(x, y + h - 3, w, ATTR_BORDER);
+    text_center(x + 1, y + h - 2, w - 2,
+                "Esc Back   Up/Down Move   Enter Choose", ATTR_WINDOW);
+    fill(0, SCREEN_ROWS - 1, SCREEN_COLS, 1, ' ', ATTR_HEADER);
+    text_center(0, SCREEN_ROWS - 1, SCREEN_COLS,
+                "Native gameport backend: joystick A, 2 axes and 2 buttons.", ATTR_HEADER);
+    present_page();
+}
+
+static int joystick_setup_page(int handle)
+{
+    setup_joystick_t j;
+    static const int scale_values[] = { 4, 8, 12, 16, 20, 24, 28, 32, 48, 64, 96, 128 };
+    int selected = 0, changed = 0;
+    load_joystick_cfg(handle, &j);
+    for (;;) {
+        int key, choice, old;
+        draw_joystick_menu(&j, selected);
+        key = read_key();
+        if (key == KEY_ESC)
+            return changed;
+        if (key == (0x100 | SCAN_UP)) { if (--selected < 0) selected = 9; continue; }
+        if (key == (0x100 | SCAN_DOWN)) { if (++selected > 9) selected = 0; continue; }
+        if (key != KEY_ENTER) continue;
+        if (selected < 2) {
+            choice = choose_game_function("Joystick Button Function", j.button[selected]);
+            if (choice >= 0) {
+                strcpy(j.button[selected], choice == 0 ? "" : gamefunctions[choice - 1]);
+                changed = 1;
+            }
+        } else if (selected < 4) {
+            int axis = selected - 2;
+            choice = choose_from_list("Joystick Analog Axis", analog_names,
+                                      ARRAY_COUNT(analog_names), analog_index(j.analog[axis]));
+            if (choice >= 0) {
+                strcpy(j.analog[axis], choice == 0 ? "" : analog_names[choice]);
+                changed = 1;
+            }
+        } else if (selected < 8) {
+            int axis = (selected - 4) / 2, dir = (selected - 4) & 1;
+            choice = choose_game_function("Joystick Digital Axis", j.digital[axis][dir]);
+            if (choice >= 0) {
+                strcpy(j.digital[axis][dir], choice == 0 ? "" : gamefunctions[choice - 1]);
+                changed = 1;
+            }
+        } else {
+            int axis = selected - 8;
+            old = j.scale[axis];
+            choice = choose_numeric_value("Joystick Axis Scale", scale_values,
+                                          ARRAY_COUNT(scale_values), (int)(j.scale[axis] >> 12), "");
+            j.scale[axis] = (int32)choice << 12;
+            changed |= old != j.scale[axis];
+        }
+        if (changed) {
+            save_joystick_cfg(handle, &j);
+            SCRIPT_Save(handle, SETUP_CFG);
+        }
+    }
+}
+
+static int controller_type_index(int32 type)
+{
+    if (type == controltype_keyboardandmouse) return 1;
+    if (type == controltype_keyboardandjoystick) return 2;
+    return 0;
+}
+
+static void draw_controller_menu(int handle, int selected)
+{
+    const int x = 18, y = 5, w = 44, h = 14;
+    static const char *const labels[] = {
+        "Controller Type", "Setup Keyboard", "Setup Mouse", "Setup Joystick"
+    };
+    static const char *const type_names[] = {
+        "Keyboard", "Keyboard + Mouse", "Keyboard + Joystick"
+    };
+    int i;
+    int32 type;
+    cfg_get_number_default(handle, "Controls", "ControllerType", &type, controltype_keyboardandmouse);
     desktop(); box(x, y, w, h);
     text_center(x + 1, y + 1, w - 2, "Controller Setup", ATTR_WINDOW);
     hline(x, y + 2, w, ATTR_BORDER);
-    for (i = 0; i < 2; ++i) {
+    for (i = 0; i < 4; ++i) {
         int row = y + 4 + i * 2;
         unsigned char a = i == selected ? ATTR_SELECT : ATTR_WINDOW;
         fill(x + 3, row, w - 6, 1, ' ', a);
-        text_center(x + 3, row, w - 6, labels[i], a);
+        text(x + 5, row, labels[i], a);
+        if (i == 0)
+            text(x + 22, row, type_names[controller_type_index(type)], a);
     }
     hline(x, y + h - 3, w, ATTR_BORDER);
     text_center(x + 1, y + h - 2, w - 2,
@@ -1396,18 +1687,43 @@ static void draw_controller_menu(int selected)
 
 static int controller_setup_page(int handle)
 {
+    static const char *const type_names[] = {
+        "Keyboard", "Keyboard + Mouse", "Keyboard + Joystick"
+    };
+    static const int type_values[] = {
+        controltype_keyboard, controltype_keyboardandmouse, controltype_keyboardandjoystick
+    };
     int selected = 0, changed = 0;
     for (;;) {
         int key;
-        draw_controller_menu(selected);
+        draw_controller_menu(handle, selected);
         key = read_key();
         if (key == KEY_ESC)
             return changed;
-        if (key == (0x100 | SCAN_UP) || key == (0x100 | SCAN_DOWN)) {
-            selected ^= 1;
+        if (key == (0x100 | SCAN_UP)) {
+            if (--selected < 0) selected = 3;
+        } else if (key == (0x100 | SCAN_DOWN)) {
+            if (++selected > 3) selected = 0;
         } else if (key == KEY_ENTER) {
-            if (selected == 0) changed |= keyboard_setup_page(handle);
-            else changed |= mouse_setup_page(handle);
+            if (selected == 0) {
+                int32 type;
+                int idx, choice;
+                cfg_get_number_default(handle, "Controls", "ControllerType", &type,
+                                       controltype_keyboardandmouse);
+                idx = controller_type_index(type);
+                choice = choose_from_list("Controller Type", type_names, 3, idx);
+                if (choice >= 0 && type != type_values[choice]) {
+                    SCRIPT_PutNumber(handle, "Controls", "ControllerType",
+                                     type_values[choice], false, false);
+                    changed = 1;
+                }
+            } else if (selected == 1) {
+                changed |= keyboard_setup_page(handle);
+            } else if (selected == 2) {
+                changed |= mouse_setup_page(handle);
+            } else {
+                changed |= joystick_setup_page(handle);
+            }
             if (changed)
                 SCRIPT_Save(handle, SETUP_CFG);
         }
@@ -1474,6 +1790,8 @@ int main(void)
             } else if (selected == 1) {
                 if (screen_setup_page(handle)) dirty = 1;
             } else if (selected == 2) {
+                if (game_setup_page(handle)) dirty = 1;
+            } else if (selected == 3) {
                 if (controller_setup_page(handle)) dirty = 1;
             } else if (selected == MENU_COUNT - 1) {
                 done = 1;
