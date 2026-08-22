@@ -508,7 +508,9 @@ static void MV_Mix
       voice->position = position;
       length -= mixlength;
 
-      if ( voice->position >= voice->length )
+      /* Do not advance VOC/loop state after this output page is full.
+         MV1.C fetches the next source block on the next mixer iteration. */
+      if ( ( length > 0 ) && ( voice->position >= voice->length ) )
          {
          // Get the next block of sound
          if ( voice->GetSound( voice ) != KeepPlaying )
@@ -516,11 +518,8 @@ static void MV_Mix
             return;
             }
 
-         if ( length > 0 )
-            {
-            // Get the position of the last sample in the buffer
-            FixedPointBufferSize = voice->RateScale * ( length - 1 );
-            }
+         // Get the position of the last sample in the buffer
+         FixedPointBufferSize = voice->RateScale * ( length - 1 );
          }
       }
    }
