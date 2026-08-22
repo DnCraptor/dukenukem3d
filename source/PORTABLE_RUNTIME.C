@@ -188,18 +188,6 @@ int tolower(int c)
     return c;
 }
 
-char *strchr(const char *s, int c)
-{
-    char ch = (char)c;
-    for (;; ++s)
-    {
-        if (*s == ch)
-            return (char *)s;
-        if (*s == '\0')
-            return 0;
-    }
-}
-
 int stricmp(const char *a, const char *b)
 {
     return strcmpi(a, b);

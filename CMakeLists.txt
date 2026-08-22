@@ -197,3 +197,57 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E rm -f
         ${COMPILED_DIR}/${BUILD_NAME}.com
 )
+
+# Native replacement for the original x86 SETUP.EXE.  Keep it independent of
+# the game target: it uses the same CFG parser and native DOS runtime, but does
+# not pull the Build engine or AudioLib into the setup program.
+set(DUKE_SETUP_TARGET setup)
+set(DUKE_SETUP_SOURCES
+    UTIL/DUKESETUP.C
+    source/PORTABLE_SCRIPT.C
+)
+set_source_files_properties(${DUKE_SETUP_SOURCES} PROPERTIES
+    LANGUAGE C
+    COMPILE_OPTIONS "-std=gnu90"
+)
+
+add_executable(${DUKE_SETUP_TARGET}
+    ${DUKE_SETUP_SOURCES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/api/crt0.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/api/crt0.S
+)
+native_dos_runtime_attach(${DUKE_SETUP_TARGET})
+
+target_include_directories(${DUKE_SETUP_TARGET} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/source
+)
+target_compile_definitions(${DUKE_SETUP_TARGET} PRIVATE ELF_MODE)
+target_link_options(${DUKE_SETUP_TARGET} PRIVATE -Xlinker --print-memory-usage -r)
+
+if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(${DUKE_SETUP_TARGET} PRIVATE
+        -fno-jump-tables
+        -fstack-usage
+        -w
+    )
+endif()
+
+set_target_properties(${DUKE_SETUP_TARGET} PROPERTIES OUTPUT_NAME "setup")
+pico_enable_stdio_uart(${DUKE_SETUP_TARGET} 0)
+pico_enable_stdio_usb(${DUKE_SETUP_TARGET} 0)
+
+add_custom_command(TARGET ${DUKE_SETUP_TARGET} POST_BUILD
+    COMMAND ${CMAKE_COMMAND}
+        -DNM=${CMAKE_NM}
+        -DINPUT=$<TARGET_FILE:${DUKE_SETUP_TARGET}>
+        -DALLOW_UNRESOLVED=__ez_preinit_array_start,__ez_preinit_array_end,__ez_init_array_start,__ez_init_array_end,__ez_fini_array_start,__ez_fini_array_end
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/check_unresolved.cmake
+    COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_FILE:${DUKE_SETUP_TARGET}>
+        ${COMPILED_DIR}/setup.com
+    COMMAND ${ELF2EZ_TOOL}
+        /y ${COMPILED_DIR}/setup.com
+    COMMAND ${CMAKE_COMMAND} -E rm -f
+        ${COMPILED_DIR}/setup.com
+)

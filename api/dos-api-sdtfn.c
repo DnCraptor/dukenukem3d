@@ -302,6 +302,20 @@ char *strcat(char *dst, const char *src)
     return ret;
 }
 
+char *strchr(const char *s, int c)
+{
+    char ch = (char)c;
+
+    for (;;)
+    {
+        if (*s == ch)
+            return (char *)s;
+        if (*s == '\0')
+            return NULL;
+        ++s;
+    }
+}
+
 int strcmp(const char *a, const char *b)
 {
     for (;;)

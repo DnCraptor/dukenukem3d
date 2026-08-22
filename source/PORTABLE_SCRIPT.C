@@ -161,6 +161,20 @@ static void ps_unquote_one(const char *src, char *dst)
     ps_rtrim(dst);
 }
 
+int32 SCRIPT_Init(char *name)
+{
+    int slot;
+    (void)name;
+
+    for (slot = 0; slot < PS_MAX_SCRIPTS; ++slot)
+        if (!ps_scripts[slot].used) break;
+    if (slot == PS_MAX_SCRIPTS) return -1;
+
+    memset(&ps_scripts[slot], 0, sizeof(ps_scripts[slot]));
+    ps_scripts[slot].used = 1;
+    return slot + 1;
+}
+
 int32 SCRIPT_Load(char *filename)
 {
     FILE *f;
