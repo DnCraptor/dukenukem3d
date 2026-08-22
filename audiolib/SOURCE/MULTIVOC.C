@@ -455,19 +455,28 @@ static void MV_Mix
       rate     = voice->RateScale;
       position = voice->position;
 
+      // Match the original MV1.C mixer semantics: when the current
+      // source block is exhausted, fetch the next block and continue
+      // filling the remainder of this output page.
+      if ( position >= voice->length )
+         {
+         voice->position = position;
+         if ( voice->GetSound( voice ) != KeepPlaying )
+            {
+            return;
+            }
+
+         start    = voice->sound;
+         rate     = voice->RateScale;
+         position = voice->position;
+         FixedPointBufferSize = rate * ( length - 1 );
+         }
+
       // Check if the last sample in this buffer would be
       // beyond the length of the sample block
       if ( ( position + FixedPointBufferSize ) >= voice->length )
          {
-         if ( position < voice->length )
-            {
-            voclength = ( voice->length - position + rate - 1 ) / rate;
-            }
-         else
-            {
-            voice->GetSound( voice );
-            return;
-            }
+         voclength = ( voice->length - position + rate - 1 ) / rate;
          }
       else
          {
@@ -845,22 +854,8 @@ playbackstatus MV_GetNextVOCBlock
          {
          case 0 :
             // End of data
-            if ( ( voice->LoopStart == NULL ) ||
-               ( voice->LoopStart >= ( ptr - 4 ) ) )
-               {
-               voice->Playing = FALSE;
-               done = TRUE;
-               }
-            else
-               {
-               voice->BlockLength  = ( char * )( ptr - 4 ) - voice->LoopStart;
-               voice->sound        = voice->LoopStart;
-               voice->position     = 0;
-               voice->length       = min( voice->BlockLength, 0x8000 );
-               voice->BlockLength -= voice->length;
-               voice->length     <<= 16;
-               return( KeepPlaying );
-               }
+            voice->Playing = FALSE;
+            done = TRUE;
             break;
 
          case 1 :
