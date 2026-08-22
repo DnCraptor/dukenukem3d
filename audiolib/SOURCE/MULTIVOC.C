@@ -88,12 +88,16 @@ static unsigned long MV_GetUnalignedU32( const unsigned char *p )
    it does not, the fault is in a device-specific port/DMA backend (or the
    emulator's handling of those accesses).
 ---------------------------------------------------------------------*/
-static char        *MV_NullBuffer    = NULL;
-static int          MV_NullTransfer  = 0;
-static int          MV_NullCurrent   = 0;
-static int          MV_NullServiceId = -1;
+static char        *MV_NullBuffer        = NULL;
+static char        *MV_NullCurrentBuffer = NULL;
+static char        *MV_NullSoundPtr      = NULL;
+static int          MV_NullTransfer      = 0;
+static int          MV_NullCurrent       = 0;
+static int          MV_NullBufferNum     = 0;
+static int          MV_NullNumBuffers    = 0;
+static int          MV_NullServiceId     = -1;
 static void       ( *MV_NullCallback )( void ) = NULL;
-static int          MV_NullPlaying   = 0;
+static int          MV_NullPlaying       = 0;
 
 /* forward references to file-scope mix bookkeeping (defined further down) */
 static int MV_MixPage;
@@ -105,22 +109,31 @@ static int MV_NullService( void )
       {
       return 0;
       }
-   // DIAGNOSTIC BISECTION: advance the mix page WITHOUT calling MV_ServiceVoc,
-   // so FX initialises and sounds are *played* (queued on the voice list) but
-   // never *mixed*.  If it still hangs, the fault is in the play/load path
-   // (sound -> loadsound -> MV_PlayVoice / FX_Init), not in the mixer; if it
-   // stops hanging, the fault is inside MV_ServiceVoc or its end-of-voice
-   // callback (MV_CallBackFunc -> TestCallBack).
-   (void)MV_NullCallback;
+   {
+   volatile unsigned char sample;
+
+   /* DIAGNOSTIC BISECTION: follow the Covox playback-buffer walk exactly,
+      including an actual byte read, but still do not write it to hardware. */
+   sample = ( unsigned char )*MV_NullSoundPtr++;
+   ( void )sample;
+
    if ( --MV_NullCurrent <= 0 )
       {
-      MV_NullCurrent = MV_NullTransfer;
-      MV_MixPage++;
-      if ( MV_MixPage >= MV_NumberOfBuffers )
+      MV_NullCurrentBuffer += MV_NullTransfer;
+      if ( ++MV_NullBufferNum >= MV_NullNumBuffers )
          {
-         MV_MixPage -= MV_NumberOfBuffers;
+         MV_NullBufferNum = 0;
+         MV_NullCurrentBuffer = MV_NullBuffer;
+         }
+
+      MV_NullSoundPtr = MV_NullCurrentBuffer;
+      MV_NullCurrent = MV_NullTransfer;
+      if ( MV_NullCallback )
+         {
+         MV_NullCallback();
          }
       }
+   }
    return 0;
    }
 
@@ -136,9 +149,11 @@ static void NULL_StopPlayback( void )
       TSM_DelService( MV_NullServiceId );
       MV_NullServiceId = -1;
       }
-   MV_NullPlaying  = 0;
-   MV_NullBuffer   = NULL;
-   MV_NullCallback = NULL;
+   MV_NullPlaying       = 0;
+   MV_NullBuffer        = NULL;
+   MV_NullCurrentBuffer = NULL;
+   MV_NullSoundPtr      = NULL;
+   MV_NullCallback      = NULL;
    }
 
 static int NULL_BeginBufferedPlayback( char *buffer, int size, int divisions,
@@ -152,11 +167,15 @@ static int NULL_BeginBufferedPlayback( char *buffer, int size, int divisions,
 
    NULL_StopPlayback();
 
-   MV_NullBuffer   = buffer;
-   MV_NullTransfer = size / divisions;
-   MV_NullCurrent  = MV_NullTransfer;
-   MV_NullCallback = callback;
-   MV_NullPlaying  = 1;
+   MV_NullBuffer        = buffer;
+   MV_NullCurrentBuffer = buffer;
+   MV_NullSoundPtr      = buffer;
+   MV_NullTransfer      = size / divisions;
+   MV_NullCurrent       = MV_NullTransfer;
+   MV_NullBufferNum     = 0;
+   MV_NullNumBuffers    = divisions;
+   MV_NullCallback      = callback;
+   MV_NullPlaying       = 1;
 
    MV_NullServiceId = TSM_NewService( MV_NullService, 1000, 1, 0 );
    if ( MV_NullServiceId < 0 )
