@@ -52,6 +52,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "multivoc.h"
 #include "_multivc.h"
 #include "debugio.h"
+#include "TASK_MAN.H"
 #include "tsm.h"
 
 /*---------------------------------------------------------------------
@@ -95,7 +96,7 @@ static int          MV_NullTransfer      = 0;
 static int          MV_NullCurrent       = 0;
 static int          MV_NullBufferNum     = 0;
 static int          MV_NullNumBuffers    = 0;
-static int          MV_NullServiceId     = -1;
+static task        *MV_NullTimer         = NULL;
 static void       ( *MV_NullCallback )( void ) = NULL;
 static int          MV_NullPlaying       = 0;
 
@@ -115,7 +116,7 @@ static int MV_NullService( void )
    /* DIAGNOSTIC BISECTION: follow the Covox playback-buffer walk exactly,
       including an actual byte read, but still do not write it to hardware. */
    sample = ( unsigned char )*MV_NullSoundPtr++;
-   ( void )sample;
+   outp( 0x278, sample );
 
    if ( --MV_NullCurrent <= 0 )
       {
@@ -137,6 +138,12 @@ static int MV_NullService( void )
    return 0;
    }
 
+static void MV_NullTaskService( task *Task )
+   {
+   (void)Task;
+   (void)MV_NullService();
+   }
+
 static int NULL_Init( void )
    {
    return( MV_Ok );
@@ -144,10 +151,10 @@ static int NULL_Init( void )
 
 static void NULL_StopPlayback( void )
    {
-   if ( MV_NullServiceId >= 0 )
+   if ( MV_NullTimer != NULL )
       {
-      TSM_DelService( MV_NullServiceId );
-      MV_NullServiceId = -1;
+      TS_Terminate( MV_NullTimer );
+      MV_NullTimer = NULL;
       }
    MV_NullPlaying       = 0;
    MV_NullBuffer        = NULL;
@@ -177,18 +184,20 @@ static int NULL_BeginBufferedPlayback( char *buffer, int size, int divisions,
    MV_NullCallback      = callback;
    MV_NullPlaying       = 1;
 
-   MV_NullServiceId = TSM_NewService( MV_NullService, 1000, 1, 0 );
-   if ( MV_NullServiceId < 0 )
+   MV_NullTimer = TS_ScheduleTask( MV_NullTaskService, 16000, 1, NULL );
+   if ( MV_NullTimer == NULL )
       {
       MV_NullPlaying = 0;
       return( MV_Error );
       }
+
+   TS_Dispatch();
    return( MV_Ok );
    }
 
 static int NULL_GetPlaybackRate( void )
    {
-   return( 1000 );
+   return( 16000 );
    }
 
 static int NULL_GetCurrentPos( void )
@@ -199,6 +208,7 @@ static int NULL_GetCurrentPos( void )
       }
    return( MV_NullTransfer - MV_NullCurrent );
    }
+
 
 
 #define RoundFixed( fixedval, bits )            \
@@ -691,6 +701,7 @@ void MV_ServiceVoc
    }
 
 
+
 int leftpage  = -1;
 int rightpage = -1;
 
@@ -1176,6 +1187,7 @@ VoiceNode *MV_GetVoice
    if ( voice == &VoiceList )
       {
       MV_SetErrorCode( MV_VoiceNotFound );
+      return( NULL );
       }
 
    return( voice );
@@ -2683,6 +2695,14 @@ int MV_PlayLoopedWAV
       return( MV_Error );
       }
 
+   if ( MV_SoundCard == Null )
+      {
+      unsigned flags = DisableInterrupts();
+      LL_Add( &VoicePool, voice, next, prev );
+      RestoreInterrupts( flags );
+      return( MV_Warning );
+      }
+
    voice->wavetype    = WAV;
    voice->bits        = format->nBitsPerSample;
    voice->GetSound    = MV_GetNextWAVBlock;
@@ -2856,6 +2876,14 @@ int MV_PlayLoopedVOC
       {
       MV_SetErrorCode( MV_NoVoices );
       return( MV_Error );
+      }
+
+   if ( MV_SoundCard == Null )
+      {
+      unsigned flags = DisableInterrupts();
+      LL_Add( &VoicePool, voice, next, prev );
+      RestoreInterrupts( flags );
+      return( MV_Warning );
       }
 
    voice->wavetype    = VOC;
