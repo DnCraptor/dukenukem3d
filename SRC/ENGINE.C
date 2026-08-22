@@ -2200,7 +2200,9 @@ setgamemode(char davidoption, long daxdim, long daydim)
 	for(i=0;i<=ydim;i++) ylookup[i] = j, j += bytesperline;
 
 	numpages = 1;
+	#ifndef ELF_MODE
 	if (vidoption == 1) numpages = min(maxpages,8);
+	#endif
 
 	setview(0L,0L,xdim-1,ydim-1);
 	clearallviews(0L);
