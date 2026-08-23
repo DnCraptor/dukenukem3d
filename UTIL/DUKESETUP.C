@@ -561,10 +561,10 @@ typedef struct screen_choice_s {
 } screen_choice_t;
 
 static const int fx_devices[] = {
-    SoundBlaster, SoundSource, TandySoundSource, Covox, NumSoundCards
+    SoundBlaster, SoundSource, Covox, NumSoundCards
 };
 static const char *const fx_device_names[] = {
-    "Sound Blaster", "Disney Sound Source", "Tandy Sound Source",
+    "Sound Blaster", "Disney Sound Source",
     "Covox Speech Thing", "None"
 };
 static const int music_devices[] = { SoundBlaster, Adlib, GenMidi, NumSoundCards };

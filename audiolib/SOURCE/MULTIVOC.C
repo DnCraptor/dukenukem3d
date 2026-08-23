@@ -46,7 +46,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sndscape.h"
 #include "sndsrc.h"
 #include "COVOX.H"
-#include "TANDY.H"
 #include "pas16.h"
 #include "guswave.h"
 #include "pitch.h"
@@ -2104,10 +2103,8 @@ int MV_SetMixMode
 
       #ifndef SOUNDSOURCE_OFF
       case SoundSource :
-         MV_MixMode = SS_SetMixMode( mode );
-         break;
       case TandySoundSource :
-         MV_MixMode = TANDY_SetMixMode( mode );
+         MV_MixMode = SS_SetMixMode( mode );
          break;
       case Covox :
          MV_MixMode = CVX_SetMixMode( mode );
@@ -2269,22 +2266,11 @@ int MV_StartPlayback
 
       #ifndef SOUNDSOURCE_OFF
       case SoundSource :
+      case TandySoundSource :
          SS_BeginBufferedPlayback( MV_MixBuffer[ 0 ],
             TotalBufferSize, MV_NumberOfBuffers,
             MV_ServiceVoc );
          MV_MixRate = SS_SampleRate;
-         MV_DMAChannel = -1;
-         break;
-      case TandySoundSource :
-         status = TANDY_BeginBufferedPlayback( MV_MixBuffer[ 0 ],
-            TotalBufferSize, MV_NumberOfBuffers, MV_RequestedMixRate,
-            MV_ServiceVoc );
-         if ( status != TANDY_Ok )
-            {
-            MV_SetErrorCode( MV_SoundSourceError );
-            return( MV_Error );
-            }
-         MV_MixRate = TANDY_GetPlaybackRate();
          MV_DMAChannel = -1;
          break;
       case Covox :
@@ -2358,10 +2344,8 @@ void MV_StopPlayback
 
       #ifndef SOUNDSOURCE_OFF
       case SoundSource :
-         SS_StopPlayback();
-         break;
       case TandySoundSource :
-         TANDY_StopPlayback();
+         SS_StopPlayback();
          break;
       case Covox :
          CVX_StopPlayback();
@@ -3311,12 +3295,9 @@ int MV_TestPlayback
 
          #ifndef SOUNDSOURCE_OFF
          case SoundSource :
-            MV_SetErrorCode( MV_SoundSourceFailure );
-            pos = -1;
-            break;
          case TandySoundSource :
             MV_SetErrorCode( MV_SoundSourceFailure );
-            pos = TANDY_GetCurrentPos();
+            pos = -1;
             break;
          case Covox :
             MV_SetErrorCode( MV_SoundSourceFailure );
@@ -3487,15 +3468,9 @@ int MV_Init
 
       #ifndef SOUNDSOURCE_OFF
       case SoundSource :
+      case TandySoundSource :
          status = SS_Init( soundcard );
          if ( status != SS_Ok )
-            {
-            MV_SetErrorCode( MV_SoundSourceError );
-            }
-         break;
-      case TandySoundSource :
-         status = TANDY_Init();
-         if ( status != TANDY_Ok )
             {
             MV_SetErrorCode( MV_SoundSourceError );
             }
@@ -3656,10 +3631,8 @@ int MV_Shutdown
 
       #ifndef SOUNDSOURCE_OFF
       case SoundSource :
-         SS_Shutdown();
-         break;
       case TandySoundSource :
-         TANDY_Shutdown();
+         SS_Shutdown();
          break;
       case Covox :
          CVX_Shutdown();

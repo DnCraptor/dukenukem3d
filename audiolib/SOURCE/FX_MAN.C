@@ -38,7 +38,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "guswave.h"
 #include "sndsrc.h"
 #include "COVOX.H"
-#include "TANDY.H"
 #include "ll_man.h"
 #include "user.h"
 #include "fx_man.h"
@@ -119,10 +118,8 @@ char *FX_ErrorString
                break;
 
             case SoundSource :
-               ErrorString = SS_ErrorString( SS_Error );
-               break;
             case TandySoundSource :
-               ErrorString = TANDY_ErrorString( TANDY_Error );
+               ErrorString = SS_ErrorString( SS_Error );
                break;
             case Covox :
                ErrorString = CVX_ErrorString( CVX_Error );
@@ -241,6 +238,7 @@ int FX_SetupCard
          break;
 
       case SoundSource :
+      case TandySoundSource :
          DeviceStatus = SS_Init( SoundCard );
          if ( DeviceStatus != SS_Ok )
             {
@@ -249,20 +247,6 @@ int FX_SetupCard
             break;
             }
          SS_Shutdown();
-         device->MaxVoices     = 32;
-         device->MaxSampleBits = 8;
-         device->MaxChannels   = 1;
-         break;
-
-      case TandySoundSource :
-         DeviceStatus = TANDY_Init();
-         if ( DeviceStatus != TANDY_Ok )
-            {
-            FX_SetErrorCode( FX_SoundCardError );
-            status = FX_Error;
-            break;
-            }
-         TANDY_Shutdown();
          device->MaxVoices     = 32;
          device->MaxSampleBits = 8;
          device->MaxChannels   = 1;
