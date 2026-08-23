@@ -39,6 +39,9 @@ extern int32 NumChannels;
 extern int32 NumBits;
 extern int32 MixRate;
 extern int32 MidiPort;
+extern int32 CovoxPort;
+extern int32 SoundSourcePort;
+extern int32 TandyPort;
 extern int32 ReverseStereo;
 
 extern int32 ControllerType;

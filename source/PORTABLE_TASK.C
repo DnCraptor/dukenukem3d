@@ -90,8 +90,8 @@ static int portable_ts_find_free(void)
     return -1;
 }
 
-task *TS_ScheduleTask(void (*Function)(task *), int rate,
-                      int priority, void *data)
+static task *portable_ts_schedule(void (*Function)(task *), int rate,
+                                  int priority, void *data, int skip_late)
 {
     task *ptr;
     int slot;
@@ -124,7 +124,10 @@ task *TS_ScheduleTask(void (*Function)(task *), int rate,
     ptr->active = 0;
 
     portable_ts_slots[slot].ptr = ptr;
-    id = TSM_NewService(portable_ts_wrappers[slot], rate, priority, 1);
+    if (skip_late)
+        id = TSM_NewServiceSkipLate(portable_ts_wrappers[slot], rate, priority, 1);
+    else
+        id = TSM_NewService(portable_ts_wrappers[slot], rate, priority, 1);
     if (id < 0)
     {
         portable_ts_slots[slot].ptr = NULL;
@@ -134,6 +137,18 @@ task *TS_ScheduleTask(void (*Function)(task *), int rate,
 
     portable_ts_slots[slot].tsm_id = id;
     return ptr;
+}
+
+task *TS_ScheduleTask(void (*Function)(task *), int rate,
+                      int priority, void *data)
+{
+    return portable_ts_schedule(Function, rate, priority, data, 0);
+}
+
+task *TS_ScheduleTaskSkipLate(void (*Function)(task *), int rate,
+                              int priority, void *data)
+{
+    return portable_ts_schedule(Function, rate, priority, data, 1);
 }
 
 int TS_Terminate(task *ptr)

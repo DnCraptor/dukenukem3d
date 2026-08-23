@@ -2212,7 +2212,7 @@ int MV_StartPlayback
          break;
       case Covox :
          status = CVX_BeginBufferedPlayback( MV_MixBuffer[ 0 ],
-            TotalBufferSize, MV_NumberOfBuffers,
+            TotalBufferSize, MV_NumberOfBuffers, MV_RequestedMixRate,
             MV_ServiceVoc );
          if ( status != CVX_Ok )
             {

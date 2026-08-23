@@ -57,6 +57,9 @@ int32 NumChannels;
 int32 NumBits;
 int32 MixRate;
 int32 MidiPort;
+int32 CovoxPort = 0x278;
+int32 SoundSourcePort = 0x378;
+int32 TandyPort = 0x0C0;
 int32 ReverseStereo;
 
 int32 ControllerType;
@@ -635,6 +638,9 @@ void CONFIG_ReadSetup( void )
    SCRIPT_GetNumber( scripthandle, "Sound Setup", "NumBits",&NumBits);
    SCRIPT_GetNumber( scripthandle, "Sound Setup", "MixRate",&MixRate);
    SCRIPT_GetNumber( scripthandle, "Sound Setup", "MidiPort",&MidiPort);
+   SCRIPT_GetNumber( scripthandle, "Sound Setup", "CovoxPort",&CovoxPort);
+   SCRIPT_GetNumber( scripthandle, "Sound Setup", "SoundSourcePort",&SoundSourcePort);
+   SCRIPT_GetNumber( scripthandle, "Sound Setup", "TandyPort",&TandyPort);
 
    /* SCRIPT_GetNumber leaves its destination untouched when an optional key
       is absent.  Seed each temporary from the field it belongs to instead of

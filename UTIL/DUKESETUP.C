@@ -531,6 +531,15 @@ typedef struct setup_sound_s {
     int32 num_bits;
     int32 mix_rate;
     int32 midi_port;
+    int32 blaster_address;
+    int32 blaster_type;
+    int32 blaster_interrupt;
+    int32 blaster_dma8;
+    int32 blaster_dma16;
+    int32 blaster_emu;
+    int32 covox_port;
+    int32 soundsource_port;
+    int32 tandy_port;
     int32 sound_toggle;
     int32 music_toggle;
     int32 voice_toggle;
@@ -614,6 +623,15 @@ static void load_sound_cfg(int handle, setup_sound_t *c)
     cfg_get_number_default(handle, "Sound Setup", "NumBits", &c->num_bits, 8);
     cfg_get_number_default(handle, "Sound Setup", "MixRate", &c->mix_rate, 22050);
     cfg_get_number_default(handle, "Sound Setup", "MidiPort", &c->midi_port, 0x330);
+    cfg_get_number_default(handle, "Sound Setup", "BlasterAddress", &c->blaster_address, 0x220);
+    cfg_get_number_default(handle, "Sound Setup", "BlasterType", &c->blaster_type, 6);
+    cfg_get_number_default(handle, "Sound Setup", "BlasterInterrupt", &c->blaster_interrupt, 5);
+    cfg_get_number_default(handle, "Sound Setup", "BlasterDma8", &c->blaster_dma8, 1);
+    cfg_get_number_default(handle, "Sound Setup", "BlasterDma16", &c->blaster_dma16, 5);
+    cfg_get_number_default(handle, "Sound Setup", "BlasterEmu", &c->blaster_emu, 0x620);
+    cfg_get_number_default(handle, "Sound Setup", "CovoxPort", &c->covox_port, 0x278);
+    cfg_get_number_default(handle, "Sound Setup", "SoundSourcePort", &c->soundsource_port, 0x378);
+    cfg_get_number_default(handle, "Sound Setup", "TandyPort", &c->tandy_port, 0xC0);
     cfg_get_number_default(handle, "Sound Setup", "SoundToggle", &c->sound_toggle, 1);
     cfg_get_number_default(handle, "Sound Setup", "MusicToggle", &c->music_toggle, 1);
     cfg_get_number_default(handle, "Sound Setup", "VoiceToggle", &c->voice_toggle, 1);
@@ -630,6 +648,15 @@ static void save_sound_cfg(int handle, const setup_sound_t *c)
     SCRIPT_PutNumber(handle, "Sound Setup", "NumBits", c->num_bits, false, false);
     SCRIPT_PutNumber(handle, "Sound Setup", "MixRate", c->mix_rate, false, false);
     SCRIPT_PutNumber(handle, "Sound Setup", "MidiPort", c->midi_port, true, false);
+    SCRIPT_PutNumber(handle, "Sound Setup", "BlasterAddress", c->blaster_address, true, false);
+    SCRIPT_PutNumber(handle, "Sound Setup", "BlasterType", c->blaster_type, false, false);
+    SCRIPT_PutNumber(handle, "Sound Setup", "BlasterInterrupt", c->blaster_interrupt, false, false);
+    SCRIPT_PutNumber(handle, "Sound Setup", "BlasterDma8", c->blaster_dma8, false, false);
+    SCRIPT_PutNumber(handle, "Sound Setup", "BlasterDma16", c->blaster_dma16, false, false);
+    SCRIPT_PutNumber(handle, "Sound Setup", "BlasterEmu", c->blaster_emu, true, false);
+    SCRIPT_PutNumber(handle, "Sound Setup", "CovoxPort", c->covox_port, true, false);
+    SCRIPT_PutNumber(handle, "Sound Setup", "SoundSourcePort", c->soundsource_port, true, false);
+    SCRIPT_PutNumber(handle, "Sound Setup", "TandyPort", c->tandy_port, true, false);
     SCRIPT_PutNumber(handle, "Sound Setup", "SoundToggle", c->sound_toggle, false, false);
     SCRIPT_PutNumber(handle, "Sound Setup", "MusicToggle", c->music_toggle, false, false);
     SCRIPT_PutNumber(handle, "Sound Setup", "VoiceToggle", c->voice_toggle, false, false);
@@ -730,24 +757,115 @@ static int choose_numeric_value(const char *title, const int *values, int count,
     return i < 0 ? current : values[i];
 }
 
-static int choose_midi_port(int current)
+static int choose_hex_value(const char *title, const int *values, int count,
+                            int current)
 {
-    int values[32];
     char storage[32][12];
     const char *names[32];
-    int selected = 0;
+    int selected;
     int i;
 
-    for (i = 0; i < 32; ++i) {
-        values[i] = 0x200 + i * 0x10;
+    if (count > 32) count = 32;
+    selected = find_int(values, count, current);
+    if (selected < 0) selected = 0;
+    for (i = 0; i < count; ++i) {
         sprintf(storage[i], "0x%03X", values[i]);
         names[i] = storage[i];
-        if (values[i] == current)
-            selected = i;
     }
-
-    i = choose_from_list("MIDI Port", names, 32, selected);
+    i = choose_from_list(title, names, count, selected);
     return i < 0 ? current : values[i];
+}
+
+static int choose_midi_port(int current)
+{
+    static const int values[] = { 0x300, 0x310, 0x320, 0x330 };
+    return choose_hex_value("MPU-401 Port", values, ARRAY_COUNT(values), current);
+}
+
+static int configure_sound_blaster(setup_sound_t *c)
+{
+    static const char *const labels[] = {
+        "Base Address", "Card Type", "IRQ", "8-bit DMA", "16-bit DMA", "Back"
+    };
+    static const int addresses[] = { 0x210, 0x220, 0x230, 0x240, 0x250, 0x260, 0x280 };
+    static const int types[] = { 1, 2, 3, 4, 6 };
+    static const char *const type_names[] = {
+        "Sound Blaster", "Sound Blaster Pro", "Sound Blaster 2.0",
+        "Sound Blaster Pro 2", "Sound Blaster 16"
+    };
+    static const int irqs[] = { 2, 5, 7, 10 };
+    static const int dma8[] = { 0, 1, 3 };
+    static const int dma16[] = { 5, 6, 7 };
+    int selected = 0, changed = 0;
+
+    for (;;) {
+        char values[6][24];
+        const char *items[6];
+        int key, old, choice, i;
+        sprintf(values[0], "Base Address   0x%03lX", (unsigned long)c->blaster_address);
+        strcpy(values[1], "Card Type      ");
+        i = find_int(types, ARRAY_COUNT(types), c->blaster_type);
+        strcat(values[1], i >= 0 ? type_names[i] : "Unknown");
+        sprintf(values[2], "IRQ            %ld", (long)c->blaster_interrupt);
+        sprintf(values[3], "8-bit DMA      %ld", (long)c->blaster_dma8);
+        sprintf(values[4], "16-bit DMA     %ld", (long)c->blaster_dma16);
+        strcpy(values[5], "Back");
+        for (i = 0; i < 6; ++i) items[i] = values[i];
+        choice = choose_from_list("Sound Blaster Configuration", items, 6, selected);
+        if (choice < 0 || choice == 5) return changed;
+        selected = choice;
+        old = 0;
+        switch (choice) {
+        case 0: old=c->blaster_address; c->blaster_address=choose_hex_value(labels[0],addresses,ARRAY_COUNT(addresses),old); changed|=old!=c->blaster_address; break;
+        case 1: old=c->blaster_type; i=choose_from_list(labels[1],type_names,ARRAY_COUNT(types),find_int(types,ARRAY_COUNT(types),old)); if(i>=0)c->blaster_type=types[i]; changed|=old!=c->blaster_type; break;
+        case 2: old=c->blaster_interrupt; c->blaster_interrupt=choose_numeric_value(labels[2],irqs,ARRAY_COUNT(irqs),old,""); changed|=old!=c->blaster_interrupt; break;
+        case 3: old=c->blaster_dma8; c->blaster_dma8=choose_numeric_value(labels[3],dma8,ARRAY_COUNT(dma8),old,""); changed|=old!=c->blaster_dma8; break;
+        case 4: old=c->blaster_dma16; c->blaster_dma16=choose_numeric_value(labels[4],dma16,ARRAY_COUNT(dma16),old,""); changed|=old!=c->blaster_dma16; break;
+        }
+        (void)key;
+    }
+}
+
+static int configure_parallel_port(const char *title, int32 *port)
+{
+    static const int ports[] = { 0x3BC, 0x378, 0x278 };
+    int old = *port;
+    *port = choose_hex_value(title, ports, ARRAY_COUNT(ports), *port);
+    return old != *port;
+}
+
+static int configure_tandy_port(setup_sound_t *c)
+{
+    static const int ports[] = { 0x0C0, 0x1E0, 0x2C0 };
+    int old = c->tandy_port;
+    c->tandy_port = choose_hex_value("Tandy SN76489 Port", ports, ARRAY_COUNT(ports), old);
+    return old != c->tandy_port;
+}
+
+static int configure_fx_device(setup_sound_t *c)
+{
+    if (c->fx_device == SoundBlaster)
+        return configure_sound_blaster(c);
+    if (c->fx_device == Covox)
+        return configure_parallel_port("Covox LPT Port", &c->covox_port);
+    if (c->fx_device == SoundSource)
+        return configure_parallel_port("Disney Sound Source Port", &c->soundsource_port);
+    if (c->fx_device == TandySoundSource)
+        return configure_tandy_port(c);
+    return 0;
+}
+
+static int configure_music_device(setup_sound_t *c)
+{
+    int old;
+    if (c->music_device == GenMidi) {
+        old = c->midi_port;
+        c->midi_port = choose_midi_port(c->midi_port);
+        return old != c->midi_port;
+    }
+    if (c->music_device == SoundBlaster)
+        return configure_sound_blaster(c);
+    return 0;
 }
 
 static int choose_boolean(const char *title, int current)
@@ -762,8 +880,7 @@ static void draw_sound_menu(const setup_sound_t *c, int selected)
     const int x = 12, y = 2, w = 56, h = 22;
     static const char *const labels[] = {
         "Sound FX Device", "Music Device", "Voices", "Channels", "Sample Bits",
-        "Mix Rate", "MIDI Port", "Sound", "Music", "Duke Talk", "Ambience",
-        "Reverse Stereo"
+        "Mix Rate", "Sound", "Music", "Duke Talk", "Ambience", "Reverse Stereo"
     };
     char value[48];
     int i;
@@ -772,7 +889,7 @@ static void draw_sound_menu(const setup_sound_t *c, int selected)
     box(x, y, w, h);
     text_center(x + 1, y + 1, w - 2, "Sound Setup", ATTR_WINDOW);
     hline(x, y + 2, w, ATTR_BORDER);
-    for (i = 0; i < 12; ++i) {
+    for (i = 0; i < 11; ++i) {
         int row = y + 3 + i;
         unsigned char a = i == selected ? ATTR_SELECT : ATTR_WINDOW;
         fill(x + 2, row, w - 4, 1, ' ', a);
@@ -785,12 +902,11 @@ static void draw_sound_menu(const setup_sound_t *c, int selected)
         case 3: sprintf(value, "%ld", (long)c->num_channels); break;
         case 4: sprintf(value, "%ld bit", (long)c->num_bits); break;
         case 5: sprintf(value, "%ld Hz", (long)c->mix_rate); break;
-        case 6: sprintf(value, "0x%lX", (unsigned long)c->midi_port); break;
-        case 7: strcpy(value, c->sound_toggle ? "On" : "Off"); break;
-        case 8: strcpy(value, c->music_toggle ? "On" : "Off"); break;
-        case 9: strcpy(value, c->voice_toggle ? "On" : "Off"); break;
-        case 10: strcpy(value, c->ambience_toggle ? "On" : "Off"); break;
-        case 11: strcpy(value, c->reverse_stereo ? "On" : "Off"); break;
+        case 6: strcpy(value, c->sound_toggle ? "On" : "Off"); break;
+        case 7: strcpy(value, c->music_toggle ? "On" : "Off"); break;
+        case 8: strcpy(value, c->voice_toggle ? "On" : "Off"); break;
+        case 9: strcpy(value, c->ambience_toggle ? "On" : "Off"); break;
+        case 10: strcpy(value, c->reverse_stereo ? "On" : "Off"); break;
         }
         text(x + 31, row, value, a);
     }
@@ -824,11 +940,11 @@ static int sound_setup_page(int handle)
             return changed;
         }
         if (key == (0x100 | SCAN_UP)) {
-            if (--selected < 0) selected = 11;
+            if (--selected < 0) selected = 10;
             continue;
         }
         if (key == (0x100 | SCAN_DOWN)) {
-            if (++selected > 11) selected = 0;
+            if (++selected > 10) selected = 0;
             continue;
         }
         if (key != KEY_ENTER)
@@ -843,6 +959,7 @@ static int sound_setup_page(int handle)
                 old_value = c.fx_device;
                 c.fx_device = fx_devices[choice];
                 changed |= old_value != c.fx_device;
+                changed |= configure_fx_device(&c);
             }
             break;
         case 1:
@@ -853,6 +970,7 @@ static int sound_setup_page(int handle)
                 old_value = c.music_device;
                 c.music_device = music_devices[choice];
                 changed |= old_value != c.music_device;
+                changed |= configure_music_device(&c);
             }
             break;
         case 2:
@@ -884,31 +1002,26 @@ static int sound_setup_page(int handle)
             changed |= old_value != c.mix_rate;
             break;
         case 6:
-            old_value = c.midi_port;
-            c.midi_port = choose_midi_port(c.midi_port);
-            changed |= old_value != c.midi_port;
-            break;
-        case 7:
             old_value = c.sound_toggle;
             c.sound_toggle = choose_boolean("Sound", c.sound_toggle);
             changed |= old_value != c.sound_toggle;
             break;
-        case 8:
+        case 7:
             old_value = c.music_toggle;
             c.music_toggle = choose_boolean("Music", c.music_toggle);
             changed |= old_value != c.music_toggle;
             break;
-        case 9:
+        case 8:
             old_value = c.voice_toggle;
             c.voice_toggle = choose_boolean("Duke Talk", c.voice_toggle);
             changed |= old_value != c.voice_toggle;
             break;
-        case 10:
+        case 9:
             old_value = c.ambience_toggle;
             c.ambience_toggle = choose_boolean("Ambience", c.ambience_toggle);
             changed |= old_value != c.ambience_toggle;
             break;
-        case 11:
+        case 10:
             old_value = c.reverse_stereo;
             c.reverse_stereo = choose_boolean("Reverse Stereo", c.reverse_stereo);
             changed |= old_value != c.reverse_stereo;

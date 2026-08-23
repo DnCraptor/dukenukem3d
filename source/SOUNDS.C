@@ -31,6 +31,8 @@ Prepared for public release: 03/21/2003 - Charlie Wiederhold, 3D Realms
 #include "sndcards.h"
 #include "fx_man.h"
 #include "music.h"
+#include "sndsrc.h"
+#include "covox.h"
 #include "util_lib.h"
 #include "duke3d.h"
 
@@ -53,6 +55,11 @@ void SoundStartup( void )
 
    // if they chose None lets return
    if (FXDevice == NumSoundCards) return;
+
+   if (FXDevice == SoundSource)
+      SS_SetPort(SoundSourcePort);
+   else if (FXDevice == Covox)
+      CVX_SetPort(CovoxPort);
 
    // Do special Sound Blaster, AWE32 stuff
    if (

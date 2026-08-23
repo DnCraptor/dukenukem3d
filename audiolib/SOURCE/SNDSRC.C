@@ -458,7 +458,6 @@ int SS_DetectSoundSource
       timing-sensitive printer-port probe through the cooperative scheduler. */
    if ( sound_hw_mask() & SOUND_HW_DSS )
       {
-      SS_Port = SS_Port1;
       return( TRUE );
       }
 
