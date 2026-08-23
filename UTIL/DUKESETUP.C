@@ -25,6 +25,7 @@
 #include <string.h>
 
 #define MOUSE_LEFT 1u
+#define SETUP_DSS_RATE 7000
 
 #define SETUP_CFG "DUKE3D.CFG"
 #define SCREEN_COLS 80
@@ -622,6 +623,8 @@ static void load_sound_cfg(int handle, setup_sound_t *c)
     cfg_get_number_default(handle, "Sound Setup", "NumChannels", &c->num_channels, 2);
     cfg_get_number_default(handle, "Sound Setup", "NumBits", &c->num_bits, 8);
     cfg_get_number_default(handle, "Sound Setup", "MixRate", &c->mix_rate, 22050);
+    if (c->fx_device == SoundSource)
+        c->mix_rate = SETUP_DSS_RATE;
     cfg_get_number_default(handle, "Sound Setup", "MidiPort", &c->midi_port, 0x330);
     cfg_get_number_default(handle, "Sound Setup", "BlasterAddress", &c->blaster_address, 0x220);
     cfg_get_number_default(handle, "Sound Setup", "BlasterType", &c->blaster_type, 6);
@@ -901,7 +904,12 @@ static void draw_sound_menu(const setup_sound_t *c, int selected)
         case 2: sprintf(value, "%ld", (long)c->num_voices); break;
         case 3: sprintf(value, "%ld", (long)c->num_channels); break;
         case 4: sprintf(value, "%ld bit", (long)c->num_bits); break;
-        case 5: sprintf(value, "%ld Hz", (long)c->mix_rate); break;
+        case 5:
+            if (c->fx_device == SoundSource)
+                sprintf(value, "%d Hz (fixed)", SETUP_DSS_RATE);
+            else
+                sprintf(value, "%ld Hz", (long)c->mix_rate);
+            break;
         case 6: strcpy(value, c->sound_toggle ? "On" : "Off"); break;
         case 7: strcpy(value, c->music_toggle ? "On" : "Off"); break;
         case 8: strcpy(value, c->voice_toggle ? "On" : "Off"); break;
@@ -959,6 +967,10 @@ static int sound_setup_page(int handle)
                 old_value = c.fx_device;
                 c.fx_device = fx_devices[choice];
                 changed |= old_value != c.fx_device;
+                if (c.fx_device == SoundSource && c.mix_rate != SETUP_DSS_RATE) {
+                    c.mix_rate = SETUP_DSS_RATE;
+                    changed = 1;
+                }
                 changed |= configure_fx_device(&c);
             }
             break;
@@ -996,9 +1008,12 @@ static int sound_setup_page(int handle)
             break;
         case 5:
             old_value = c.mix_rate;
-            c.mix_rate = choose_numeric_value("Mix Rate", rate_values,
-                                              ARRAY_COUNT(rate_values),
-                                              c.mix_rate, "Hz");
+            if (c.fx_device == SoundSource)
+                c.mix_rate = SETUP_DSS_RATE;
+            else
+                c.mix_rate = choose_numeric_value("Mix Rate", rate_values,
+                                                  ARRAY_COUNT(rate_values),
+                                                  c.mix_rate, "Hz");
             changed |= old_value != c.mix_rate;
             break;
         case 6:

@@ -14,43 +14,13 @@ static int packet_size(void){return (mix_mode&STEREO?2:1)*(mix_mode&SIXTEEN_BIT?
    TSM_Yield could advance the mixer independently of DMA. */
 static int service(void)
 {
-    char *pos;
-    int offset;
-    int block;
-    int steps;
-
-    if(!playing || !callback || !play_buffer || play_block <= 0 || play_divisions <= 0)
+    /* MV_ServiceVoc() reads the 8237 position itself and keeps a lookahead
+       window of pages mixed ahead of the DMA, so the service only has to poke
+       it; the mixer decides how many pages to fill.  (The old code advanced
+       one page per elapsed block, leaving skipped pages to replay = echo.) */
+    if(!playing || !callback)
         return 0;
-
-    pos = DMA_GetCurrentPos(BLASTER_DMAChannel);
-    if(!pos)
-        return 0;
-
-    offset = (int)(pos - play_buffer);
-    if(offset < 0 || offset >= play_length)
-        return 0;
-
-    block = offset / play_block;
-    if(block >= play_divisions)
-        block = play_divisions - 1;
-
-    if(last_dma_block < 0)
-    {
-        last_dma_block = block;
-        return 0;
-    }
-
-    steps = (block - last_dma_block + play_divisions) % play_divisions;
-    if(steps > 0)
-    {
-        /* MV_ServiceVoc() derives the mix page from the current DMA
-           position itself.  When several DMA blocks elapsed between
-           cooperative service points, replaying one callback per missed
-           block makes every callback observe the same current position
-           and remix the same page repeatedly. */
-        last_dma_block = block;
-        callback();
-    }
+    callback();
     return 0;
 }
 #define BLASTER_IO_POLL_LIMIT 256u

@@ -618,7 +618,15 @@ static void MV_DeleteDeadVoices
 
 // static int backcolor = 1;
 
-void MV_ServiceVoc
+/*---------------------------------------------------------------------
+   Function: MV_MixOnePage
+
+   Clear (or reverb-fill) MV_MixBuffer[ MV_MixPage ] and mix every active
+   voice into it.  Split out of MV_ServiceVoc so the DMA path can keep a
+   lookahead window of pages filled ahead of the 8237 controller.
+---------------------------------------------------------------------*/
+
+static void MV_MixOnePage
    (
    void
    )
@@ -626,27 +634,6 @@ void MV_ServiceVoc
    {
    VoiceNode *voice;
    VoiceNode *next;
-   char      *buffer;
-   int        ErasePage;
-
-   if ( MV_DMAChannel >= 0 )
-      {
-      // Get the currently playing buffer
-      buffer = ( char * )DMA_GetCurrentPos( MV_DMAChannel );
-      MV_MixPage   = ( unsigned )( buffer - MV_MixBuffer[ 0 ] );
-      MV_MixPage >>= MV_BuffShift;
-      }
-
-   ErasePage = MV_PlayPage;
-   MV_DeleteDeadVoices( ErasePage );
-   MV_PlayPage = MV_MixPage;
-
-   // Toggle which buffer we'll mix next
-   MV_MixPage++;
-   if ( MV_MixPage >= MV_NumberOfBuffers )
-      {
-      MV_MixPage -= MV_NumberOfBuffers;
-      }
 
    if ( MV_ReverbLevel == 0 )
       {
@@ -755,6 +742,82 @@ void MV_ServiceVoc
 
       next = voice->next;
       voice->Active[ MV_MixPage ] = voice->Playing;
+      }
+   }
+
+/*---------------------------------------------------------------------
+   Function: MV_ServiceVoc
+
+   For DMA cards, keep a lookahead window of pages mixed *ahead* of the
+   current 8237 position, so a delayed cooperative service point can never
+   let the DMA replay a stale page (that replay is the audible echo).  The
+   previous code only kept one page ahead and skipped the pages the DMA had
+   already passed, which replayed as an echo.  Non-DMA cards mix one page
+   per call.
+---------------------------------------------------------------------*/
+
+void MV_ServiceVoc
+   (
+   void
+   )
+
+   {
+   int ahead;
+   int guard;
+
+   if ( MV_DMAChannel >= 0 )
+      {
+      char *buffer;
+      int   dmapage;
+      int   lookahead;
+
+      buffer  = ( char * )DMA_GetCurrentPos( MV_DMAChannel );
+      dmapage = ( ( unsigned )( buffer - MV_MixBuffer[ 0 ] ) ) >> MV_BuffShift;
+
+      MV_DeleteDeadVoices( MV_PlayPage );
+      MV_PlayPage = dmapage;
+
+      lookahead = MV_NumberOfBuffers / 2;
+      if ( lookahead < 1 )
+         {
+         lookahead = 1;
+         }
+
+      // If the DMA caught up to (or overran) the mix page, restart the fill
+      // window one page ahead of it.
+      ahead = ( MV_MixPage - dmapage + MV_NumberOfBuffers ) % MV_NumberOfBuffers;
+      if ( ( ahead == 0 ) || ( ahead > lookahead + 1 ) )
+         {
+         MV_MixPage = ( dmapage + 1 ) % MV_NumberOfBuffers;
+         }
+
+      // Fill pages [ dmapage+1 .. dmapage+lookahead ].
+      for ( guard = 0; guard < MV_NumberOfBuffers; guard++ )
+         {
+         ahead = ( MV_MixPage - dmapage + MV_NumberOfBuffers ) % MV_NumberOfBuffers;
+         if ( ahead > lookahead )
+            {
+            break;
+            }
+         MV_MixOnePage();
+         MV_MixPage++;
+         if ( MV_MixPage >= MV_NumberOfBuffers )
+            {
+            MV_MixPage -= MV_NumberOfBuffers;
+            }
+         }
+      }
+   else
+      {
+      // Non-DMA (Covox / DSS / Null): one page per service call.
+      MV_DeleteDeadVoices( MV_PlayPage );
+      MV_PlayPage = MV_MixPage;
+      MV_MixPage++;
+      if ( MV_MixPage >= MV_NumberOfBuffers )
+         {
+         MV_MixPage -= MV_NumberOfBuffers;
+         }
+      MV_MixOnePage();
       }
    }
 
@@ -3452,6 +3515,14 @@ int MV_Init
    MV_Recording    = FALSE;
    MV_ReverbLevel  = 0;
    MV_ReverbTable  = NULL;
+
+   // Disney Sound Source has a fixed hardware playback clock.
+   // Keep the requested and effective mixer rates identical so every
+   // voice is resampled for the same 7 kHz stream consumed by the FIFO.
+   if ( soundcard == SoundSource )
+      {
+      MixRate = SS_SampleRate;
+      }
 
    // Set the sampling rate
    MV_RequestedMixRate = MixRate;
