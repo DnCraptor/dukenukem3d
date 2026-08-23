@@ -68,9 +68,6 @@ static char   *SS_SoundPtr;
 volatile int   SS_SoundPlaying;
 
 static task   *SS_Timer;
-static uint32_t SS_LastServiceTime = 0;
-static uint32_t SS_TimeFraction = 0;
-static int      SS_QueuedSamples = 0;
 
 void ( *SS_CallBack )( void );
 
@@ -180,11 +177,6 @@ static void SS_ServiceInterrupt
    )
 
    {
-   uint32_t now;
-   uint32_t elapsed;
-   uint32_t scaled;
-   uint32_t consumed;
-   uint32_t late;
    int port = SS_Port;
    int count;
 
@@ -195,59 +187,20 @@ static void SS_ServiceInterrupt
       return;
       }
 
-   /* The hardware consumes queued bytes at SS_SampleRate independently of
-    * DOS task servicing.  First account for bytes which have left the FIFO
-    * since the previous real service pass.  Only time spent after the FIFO
-    * has drained makes source samples stale; those samples are skipped so a
-    * late yield cannot stretch the sound or lower its pitch. */
-   now = TSM_CurrentTime();
-   elapsed = now - SS_LastServiceTime;
-   SS_LastServiceTime = now;
-
-   scaled = SS_TimeFraction + elapsed * ( uint32_t )SS_SampleRate;
-   consumed = scaled / 1000000u;
-   SS_TimeFraction = scaled % 1000000u;
-
-   if ( consumed >= ( uint32_t )SS_QueuedSamples )
-      {
-      late = consumed - ( uint32_t )SS_QueuedSamples;
-      SS_QueuedSamples = 0;
-
-      while ( late-- != 0 )
-         {
-         ( void )SS_NextSample();
-         }
-      }
-   else
-      {
-      SS_QueuedSamples -= ( int )consumed;
-      }
-
-   /* Refill every slot the real DSS reports as free.  The 16-write bound is
-    * exactly the hardware FIFO depth and also prevents a broken status port
-    * from trapping the application. */
+   /* The Disney Sound Source is self-clocking at 7 kHz.  Software does
+    * not own the sample timeline: it only feeds the hardware FIFO.
+    * Therefore never estimate elapsed samples or skip source data here.
+    * Push consecutive samples until the device reports FIFO FULL. */
    count = 0;
    while ( ( count < 16 ) && ( ( inp( port + 1 ) & 0x40 ) == 0 ) )
       {
       outp( port, SS_NextSample() );
       outp( port + 2, SS_OffCommand );
       outp( port + 2, 4 );
-
-      if ( SS_QueuedSamples < 16 )
-         {
-         SS_QueuedSamples++;
-         }
       count++;
       }
-
-   /* FULL is the only occupancy information exposed by the real device.
-    * Synchronize our estimate at that known point to prevent long-term drift
-    * between the DOS monotonic clock and the emulated 7 kHz phase. */
-   if ( inp( port + 1 ) & 0x40 )
-      {
-      SS_QueuedSamples = 16;
-      }
    }
+
 
 /*---------------------------------------------------------------------
    Function: SS_StopPlayback
@@ -351,15 +304,12 @@ int SS_BeginBufferedPlayback
    SS_NumBuffers      = NumDivisions;
 
    SS_SoundPlaying = TRUE;
-   SS_TimeFraction = 0;
-   SS_QueuedSamples = 0;
-   SS_LastServiceTime = TSM_YieldTime();
 
-   /* Prime the hardware FIFO immediately, then service it at the legacy
-    * refill cadence.  Skip-late prevents TASK_MAN from replaying stale
-    * refill callbacks after a delayed yield. */
+   /* Prime the hardware FIFO immediately.  Afterwards polling only needs
+    * to notice free FIFO space; skip-late avoids useless catch-up callbacks
+    * after a delayed cooperative yield. */
    SS_ServiceInterrupt( NULL );
-   SS_Timer = TS_ScheduleTaskSkipLate( SS_ServiceInterrupt, 510, 1, NULL );
+   SS_Timer = TS_ScheduleTaskSkipLate( SS_ServiceInterrupt, 2000, 1, NULL );
    TS_Dispatch();
 
    return( SS_Ok );
