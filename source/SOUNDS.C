@@ -33,6 +33,7 @@ Prepared for public release: 03/21/2003 - Charlie Wiederhold, 3D Realms
 #include "music.h"
 #include "sndsrc.h"
 #include "covox.h"
+#include "tandy.h"
 #include "util_lib.h"
 #include "duke3d.h"
 
@@ -60,6 +61,8 @@ void SoundStartup( void )
       SS_SetPort(SoundSourcePort);
    else if (FXDevice == Covox)
       CVX_SetPort(CovoxPort);
+   else if (FXDevice == TandySoundSource)
+      TANDY_SetPort(TandyPort);
 
    // Do special Sound Blaster, AWE32 stuff
    if (
