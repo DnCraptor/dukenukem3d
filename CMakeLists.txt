@@ -70,6 +70,7 @@ set(DUKE_BUILD_SOURCES
     source/PORTABLE_CONTROL.C
     source/PORTABLE_SCRIPT.C
     source/PORTABLE_TASK.C
+    source/PORTABLE_TSM.C
     audiolib/SOURCE/USER.C
     audiolib/SOURCE/LL_MAN.C
     audiolib/SOURCE/MIDI.C

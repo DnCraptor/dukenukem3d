@@ -577,6 +577,59 @@ void MV_StopVoice
 
 
 /*---------------------------------------------------------------------
+   Deferred voice-stop callbacks.
+
+   MV_DeleteDeadVoices() runs inside the TSR0 service IRQ.  The registered
+   MV_CallBackFunc (Duke's TestCallBack) touches game state shared with the
+   foreground (Sound[], SoundOwner[], sprite[], sector[]), so calling it from
+   the IRQ races the foreground and faults core0.  Queue the callback values
+   here and let the application drain them via MV_RunPendingCallbacks() from a
+   safe (foreground) context.  Single producer (IRQ) / single consumer
+   (foreground) ring: aligned word head/tail need no locking.
+---------------------------------------------------------------------*/
+
+#define MV_CB_QUEUE_SIZE 128
+#define MV_CB_QUEUE_MASK ( MV_CB_QUEUE_SIZE - 1 )
+
+static volatile unsigned long MV_CallbackQueue[ MV_CB_QUEUE_SIZE ];
+static volatile unsigned int  MV_CallbackHead;
+static volatile unsigned int  MV_CallbackTail;
+
+static void MV_QueueCallback
+   (
+   unsigned long val
+   )
+
+   {
+   unsigned int next = ( MV_CallbackHead + 1u ) & MV_CB_QUEUE_MASK;
+   if ( next != MV_CallbackTail )
+      {
+      MV_CallbackQueue[ MV_CallbackHead ] = val;
+      MV_CallbackHead = next;
+      }
+   /* If the ring is full the callback is dropped rather than risk running it
+      from the IRQ; overflow only happens under pathological callback storms. */
+   }
+
+void MV_RunPendingCallbacks
+   (
+   void
+   )
+
+   {
+   while ( MV_CallbackTail != MV_CallbackHead )
+      {
+      unsigned long val = MV_CallbackQueue[ MV_CallbackTail ];
+      MV_CallbackTail = ( MV_CallbackTail + 1u ) & MV_CB_QUEUE_MASK;
+      if ( MV_CallBackFunc )
+         {
+         MV_CallBackFunc( val );
+         }
+      }
+   }
+
+
+/*---------------------------------------------------------------------
    Function: MV_DeleteDeadVoices
 
    Releases voices whose final mixed page has finished playback.
@@ -601,9 +654,11 @@ static void MV_DeleteDeadVoices
 
          MV_StopVoice( voice );
 
+         /* Deferred: MV_DeleteDeadVoices runs in the TSR0 IRQ, so hand the
+            game callback to the foreground instead of calling it here. */
          if ( MV_CallBackFunc )
             {
-            MV_CallBackFunc( callbackval );
+            MV_QueueCallback( callbackval );
             }
          }
       }
@@ -756,6 +811,56 @@ static void MV_MixOnePage
    per call.
 ---------------------------------------------------------------------*/
 
+/*---------------------------------------------------------------------
+   Function: MV_ServiceVocClose
+
+   Lightweight, fully-native part of the service that is safe to run from
+   the TSR0 timer IRQ.  It only tracks the DMA read pointer and clears the
+   pages the card has already played back to silence, advancing MV_PlayPage.
+   This "closes" consumed ranges so that if the cooperative mixer is starved
+   (e.g. the foreground is blocked in a synchronous disk read) the DMA replays
+   silence instead of stale audio - no echo and no dragged-out note tails.
+   It touches no voice state, calls no game callback, and never yields, so it
+   cannot race the foreground's voice-field updates.
+---------------------------------------------------------------------*/
+
+void MV_ServiceVocClose
+   (
+   void
+   )
+
+   {
+   char *buffer;
+   int   dmapage;
+
+   if ( !MV_Installed || ( MV_DMAChannel < 0 ) )
+      {
+      return;
+      }
+
+   buffer  = ( char * )DMA_GetCurrentPos( MV_DMAChannel );
+   dmapage = ( ( unsigned )( buffer - MV_MixBuffer[ 0 ] ) ) >> MV_BuffShift;
+
+   if ( ( dmapage < 0 ) || ( dmapage >= MV_NumberOfBuffers ) )
+      {
+      return;
+      }
+
+   // Clear every page the DMA has finished with since we last looked.
+   while( MV_PlayPage != dmapage )
+      {
+      ClearBuffer_DW( MV_MixBuffer[ MV_PlayPage ], MV_Silence,
+         MV_BufferSize >> 2 );
+      MV_BufferEmpty[ MV_PlayPage ] = TRUE;
+      MV_PlayPage++;
+      if ( MV_PlayPage >= MV_NumberOfBuffers )
+         {
+         MV_PlayPage -= MV_NumberOfBuffers;
+         }
+      }
+   }
+
+
 void MV_ServiceVoc
    (
    void
@@ -774,8 +879,9 @@ void MV_ServiceVoc
       buffer  = ( char * )DMA_GetCurrentPos( MV_DMAChannel );
       dmapage = ( ( unsigned )( buffer - MV_MixBuffer[ 0 ] ) ) >> MV_BuffShift;
 
-      MV_DeleteDeadVoices( MV_PlayPage );
-      MV_PlayPage = dmapage;
+      // MV_PlayPage / consumed-page clearing is handled natively by
+      // MV_ServiceVocClose() from the TSR0 IRQ; here we only mix ahead.
+      MV_DeleteDeadVoices( dmapage );
 
       lookahead = MV_NumberOfBuffers / 2;
       if ( lookahead < 1 )
@@ -3242,7 +3348,6 @@ int MV_TestPlayback
    )
 
    {
-   unsigned flags;
    long time;
    int  start;
    int  status;
@@ -3253,9 +3358,9 @@ int MV_TestPlayback
       return( MV_Ok );
       }
 
-   flags = DisableInterrupts();
-   _enable();
-
+   /* Poll only: the mix page and clock are advanced by the TSR0 service IRQ,
+      so this must run with interrupts enabled (masking them would freeze both
+      the mixer and the emulated PIT clock and deadlock the loop). */
    status = MV_Error;
    start  = MV_MixPage;
    time   = clock() + CLOCKS_PER_SEC * 2;
@@ -3269,8 +3374,6 @@ int MV_TestPlayback
 
       TSM_Yield();
       }
-
-   RestoreInterrupts( flags );
 
    if ( status != MV_Ok )
       {

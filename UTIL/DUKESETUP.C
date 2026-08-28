@@ -369,7 +369,7 @@ static void draw_main_menu_content(int selected)
     }
 
     hline(x, y + h - 3, w, ATTR_BORDER);
-    text(x + 4, y + h - 2, "Esc Saves & Exits   \x18\x19 Move   Enter Selects", ATTR_WINDOW);
+    text(x + 1, y + h - 2, "Esc Saves & Exits   \x18\x19 Move   Enter Selects", ATTR_WINDOW);
 
     fill(0, SCREEN_ROWS - 1, SCREEN_COLS, 1, ' ', ATTR_HEADER);
     text_center(0, SCREEN_ROWS - 1, SCREEN_COLS, menu_help[selected], ATTR_HEADER);

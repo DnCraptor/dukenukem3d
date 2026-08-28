@@ -949,17 +949,14 @@ int MIDI_Reset
    {
    int channel;
    long time;
-   unsigned flags;
 
    MIDI_AllNotesOff();
 
-   flags = DisableInterrupts();
-   _enable();
+   /* Poll only: the clock is advanced by the TSR0 service IRQ, so this delay
+      must run with interrupts enabled. */
    time = clock() + CLOCKS_PER_SEC/24;
    while(clock() < time)
       TSM_Yield();
-
-   RestoreInterrupts( flags );
 
    for( channel = 0; channel < NUM_MIDI_CHANNELS; channel++ )
       {
